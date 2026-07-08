@@ -19,6 +19,31 @@
 | ⑤ LLM 파이프라인 | 3주 | 4주 |
 | (인프라) 도메인 인증·워밍업 | 2주 | 4주 |
 
+## 이슈별 접근 요약 (계획 수준)
+
+**① 이벤트 추적** — 회원별 클릭(주력)·열람(보조)을 `events`에 기록.
+- 접근: `/r/{token}` 클릭 리다이렉트(원문 302 전 기록), `/o/{token}` 열람 픽셀(보조), Resend 웹훅(delivered/bounced/complained)
+- 핵심 결정: 서명 토큰(DB 행 불필요) · 팬텀 클릭(봇·메일 프리페치) 필터 · 원본 로그 저장 후 집계
+
+**② 크롤링·발송** — API/RSS로 뉴스 수집 → 주간 발송.
+- 접근: 일 수집 / 주간 발송 2단 스케줄. 소스 = 네이버 뉴스 API·언론사 RSS·CrossRef/PubMed. 발송은 배치/백그라운드(동기 루프 폐기) + Resend 배치 API
+- 핵심 결정: 소스 화이트리스트 확정 · 발송 큐 방식
+
+**③ Score·세그먼트·분류** — 이벤트 → Activity Score → active/dormant → 베네핏 세그먼트.
+- 접근: 클릭 중심 가중합 + 시간 감쇠, `member_activity` 스냅샷 + `members.current_score` 복제
+- 핵심 결정(A~D): 가중치 · dormant 임계(주 단위) · 웹훅→events 매핑 · 벤치마크 목표치
+
+**④ 관리자 대시보드** — 회원현황·뉴스별 조회·회원별 Score 시각화.
+- 접근: 기존 BI(Supabase Interfaces / Metabase) 활용, 자체 개발 X
+- 지표: 클릭율·CTOR·구독취소율·리스트 성장률·Activity Score (오픈율 비중 ↓)
+
+**⑤ LLM 파이프라인** — 뉴스 요약·분류·후보 추림 자동화.
+- 접근: RSS → 추출 → 구조화 프롬프트 → 저장. human-in-loop(발송 전 사람 승인)
+- 핵심 결정: LLM provider(싱크 요청) · 선별 기준 프롬프트 · 비용 상한
+
+**(인프라) 도메인 인증·워밍업** — 도달률 확보.
+- 접근: SPF/DKIM/DMARC 조기(2주) · 워밍업 활동 회원 우선(~1주) · DMARC none→quarantine/reject 상향
+
 ---
 
 ## 1주차 (07.06–07.10) · 설계·기반
