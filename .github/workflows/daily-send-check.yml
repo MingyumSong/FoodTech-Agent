@@ -1,0 +1,37 @@
+name: Daily send check
+
+# 매일 09:00 KST에 Resend로 검증 메일 1통 발송 — 발송 파이프라인 카나리.
+# 도메인 인증·API 키·발송 경로가 살아있는지 받은편지함으로 확인한다.
+# 수신자는 시크릿 CHECK_EMAIL (퍼블릭 레포라 주소 하드코딩 금지).
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # 00:00 UTC = 09:00 KST
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send verification email via Resend
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          CHECK_EMAIL: ${{ secrets.CHECK_EMAIL }}
+        run: |
+          now=$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')
+          payload=$(jq -n \
+            --arg from "FoodTech Hub 검증 <check@news.foodtech-center.org>" \
+            --arg to "$CHECK_EMAIL" \
+            --arg subject "[검증] Resend 발송 정상 — $now KST" \
+            --arg text "Resend 발송 경로 일일 검증 메일입니다. 이 메일이 받은편지함에 도착하면 도메인 인증·API 키·발송 경로가 정상입니다. (발송 시각: $now KST)" \
+            '{from: $from, to: [$to], subject: $subject, text: $text}')
+          http_code=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer $RESEND_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$payload")
+          echo "Resend API HTTP $http_code"
+          if [ "$http_code" -ge 300 ]; then
+            cat /tmp/resp.json
+            exit 1
+          fi
