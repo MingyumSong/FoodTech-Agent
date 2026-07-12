@@ -113,6 +113,17 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
    `news.foodtech-center.org`를 Resend에 등록, SPF/DKIM/DMARC 인증 **Verified** (리전 Tokyo).
    관리자 페이지는 추후 `admin.foodtech-center.org`로 연결 예정(앱 배포 후 CNAME).
 
+9. **뉴스 수집 소스 확정(2026-07-13)** — 조사 결과·검증된 피드 URL은 `docs/research/news-sources.md`.
+   국내 1차 네이버 뉴스 API(키 발급 희정 대기) + 식품 전문지 RSS 4종 폴백, 해외 Brave 유지
+   (⚠️ **무료 티어 폐지** — 월 $5 크레딧, 카드 등록 필요) + 매체 RSS 4종, 학술 OpenAlex + 저널 RSS.
+   카카오(뉴스 미지원)·빅카인즈(유료화) 제외. Google News RSS 링크는 인코딩 리다이렉트 URL이라
+   클릭 추적 집계 시 디코딩 필요(T-003 설계 때 결정).
+
+10. **뉴스레터 브랜딩 확정(2026-07-13, 희정 컨펌 대기)** — 뉴스레터 **푸디픽**(FOODIE's PICK) ×
+    화자 **푸디**, 발신 `푸디 by 푸드테크센터 <foodie@news.foodtech-center.org>`, 매주 목요일.
+    코너: 아뮤즈부슈(숫자)→에피타이저(헤드라인3)→메인(심층2)→사이드(논문)→디저트(행사 CTA).
+    목업·운용 원칙은 `docs/branding/newsletter-mockup.html`.
+
 ---
 
 ## 개발 워크플로 — 티켓 기반 (docs/tickets/)
@@ -130,6 +141,7 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 ## 추천 다음 작업 (우선순위 순)
 
 1. **T-001** 뉴스 수집 안정화: Brave→RSS 폴백 수정 + 재시도 + 발송전 헬스체크. → `docs/tickets/T-001_news-fallback.md`
+   소스 풀은 `docs/research/news-sources.md` 확정 리스트 사용 (네이버 API 키 도착 시 착수 가능).
 2. **T-003(예정)** Resend 웹훅 수신 엔드포인트(open/click/bounce) — 공개 URL 필요(앱 배포 선행).
 3. ~~Supabase 프로젝트 연결~~ ✅ 2026-07-12 완료 — T-002 스키마 5테이블 적용됨(리비전 59dda42e7213).
    접속 문자열은 `.env`의 `SUPABASE_URL`(비밀번호 포함 — 커밋 금지, 접두사 `postgresql+psycopg://` 필요).

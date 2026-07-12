@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>푸디픽 — 뉴스레터 브랜딩 최종안</title>
+</head>
+<body>
+<style>
+  :root {
+    --bg: #F5F4EF;
+    --ink: #23251F;
+    --ink-soft: #5C5F55;
+    --line: #DDDCD2;
+    --card: #FFFFFF;
+    --accent: #2E6B44;
+    --accent-soft: #E7EFE9;
+    --chip-bg: #EDECE4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1B1D18; --ink: #E9E8DF; --ink-soft: #A6A99B; --line: #35382F;
+      --card: #24261F; --accent: #7FBE97; --accent-soft: #2A3A2F; --chip-bg: #2C2E26;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1B1D18; --ink: #E9E8DF; --ink-soft: #A6A99B; --line: #35382F;
+    --card: #24261F; --accent: #7FBE97; --accent-soft: #2A3A2F; --chip-bg: #2C2E26;
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4EF; --ink: #23251F; --ink-soft: #5C5F55; --line: #DDDCD2;
+    --card: #FFFFFF; --accent: #2E6B44; --accent-soft: #E7EFE9; --chip-bg: #EDECE4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    line-height: 1.6; margin: 0; padding: 0 20px 80px;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; }
+
+  /* ---------- 페이지 크롬 ---------- */
+  header.pitch { padding: 56px 0 8px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700;
+  }
+  h1 { font-size: clamp(26px, 4vw, 40px); line-height: 1.25; margin: 10px 0 8px; text-wrap: balance; }
+  .lede { color: var(--ink-soft); max-width: 62ch; margin: 0; }
+
+  .section-h {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    margin: 64px 0 20px; padding-top: 24px; border-top: 1px solid var(--line);
+  }
+  .section-h .no { font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: .1em; }
+  .section-h h2 { font-size: 21px; margin: 0; }
+  .section-h .sub { color: var(--ink-soft); font-size: 14px; }
+
+  .variant { display: grid; grid-template-columns: minmax(0, 640px) minmax(260px, 1fr); gap: 32px; align-items: start; }
+  @media (max-width: 900px) { .variant { grid-template-columns: 1fr; } }
+
+  .notes { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .note-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+  .note-card h3 { margin: 0 0 8px; font-size: 14px; letter-spacing: .06em; color: var(--accent); }
+  .note-card p, .note-card ul { margin: 0; font-size: 14px; color: var(--ink-soft); }
+  .note-card ul { padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+  .note-card strong { color: var(--ink); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { background: var(--chip-bg); border-radius: 999px; padding: 3px 11px; font-size: 12.5px; color: var(--ink); }
+
+  .email-frame {
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 12px 32px rgba(20, 24, 16, .10);
+  }
+  .email-toolbar {
+    background: var(--chip-bg); padding: 9px 16px; font-size: 12.5px; color: var(--ink-soft);
+    border-bottom: 1px solid var(--line); display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .email-toolbar b { color: var(--ink); font-weight: 600; }
+  .email-body { background: #EDEBE4; padding: 26px 14px; }
+  .email { max-width: 600px; margin: 0 auto; }
+
+  table.spec { width: 100%; border-collapse: collapse; margin: 0; font-size: 14px; }
+  table.spec th, table.spec td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.spec th { font-size: 12.5px; letter-spacing: .08em; color: var(--ink-soft); font-weight: 600; white-space: nowrap; }
+  table.spec td:first-child { color: var(--ink-soft); white-space: nowrap; }
+
+  .foot-note { margin-top: 24px; padding: 20px 22px; background: var(--accent-soft); border-radius: 10px; font-size: 14px; color: var(--ink); }
+  .foot-note h3 { margin: 0 0 6px; font-size: 14px; }
+  .foot-note ul { margin: 0; padding-left: 18px; color: var(--ink-soft); }
+  .foot-note li { margin: 3px 0; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* =====================================================
+     푸디픽 이메일 목업 (수신함 렌더링 그대로 — 라이트 고정)
+     ===================================================== */
+  .fp { background: #FFFFFF; color: #16181D; font-family: "Apple SD Gothic Neo", sans-serif; }
+  .fp .mono { font-family: "SF Mono", "Menlo", "Consolas", monospace; }
+  .fp-pad { padding: 0 32px; }
+  .fp-header { padding: 30px 32px 22px; border-bottom: 1px solid #E5E7EB; display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+  .fp-logo { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+  .fp-logo .check { color: #0B9F6A; }
+  .fp-sub { font-size: 12px; color: #6B7280; margin-top: 2px; }
+  .fp-issue { font-size: 12px; color: #6B7280; }
+
+  .fp-course {
+    display: flex; align-items: center; gap: 10px; margin: 30px 0 12px;
+  }
+  .fp-course .num {
+    font-family: "SF Mono", "Menlo", monospace; font-size: 11px; font-weight: 700;
+    color: #0B9F6A; background: #E9F7F0; padding: 4px 8px; border-radius: 4px;
+  }
+  .fp-course .name { font-size: 13px; font-weight: 800; letter-spacing: .06em; color: #16181D; }
+  .fp-course .desc { font-size: 12px; color: #9CA3AF; }
+  .fp-course::after { content: ""; flex: 1; border-top: 1px solid #F0F1F3; }
+
+  .fp-number { border-left: 3px solid #0B9F6A; padding: 2px 0 2px 18px; margin: 2px 0 6px; }
+  .fp-number .big { font-size: 36px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .fp-number .cap { font-size: 14px; color: #4B5563; margin-top: 2px; }
+
+  .fp-item { padding: 12px 0; border-bottom: 1px solid #F0F1F3; }
+  .fp-item:last-child { border-bottom: 0; }
+  .fp-item .k { font-size: 11px; color: #9CA3AF; }
+  .fp-item a.title { color: #16181D; font-weight: 700; font-size: 15.5px; text-decoration: none; }
+  .fp-item a.title:hover { color: #0B9F6A; }
+  .fp-item p { margin: 4px 0 0; font-size: 13.5px; color: #4B5563; }
+
+  .fp-cta { background: #16181D; border-radius: 8px; padding: 22px 24px; margin: 10px 0 4px; color: #F9FAFB; }
+  .fp-cta h4 { margin: 0 0 5px; font-size: 16px; }
+  .fp-cta p { margin: 0 0 14px; font-size: 13.5px; color: #C7CBD1; }
+  .fp-btn { display: inline-block; background: #0B9F6A; color: #FFF; text-decoration: none; font-weight: 700; font-size: 13.5px; padding: 10px 22px; border-radius: 6px; }
+
+  .fp-closing { margin: 26px 0 0; padding: 14px 18px; background: #F8F9F7; border-radius: 8px; font-size: 13.5px; color: #4B5563; }
+  .fp-footer { padding: 22px 32px 30px; font-size: 12px; color: #9CA3AF; border-top: 1px solid #E5E7EB; margin-top: 26px; }
+  .fp-footer a { color: #6B7280; }
+</style>
+
+<div class="wrap">
+  <header class="pitch">
+    <div class="eyebrow">FoodTech Hub · Branding Final · 2026-07-13</div>
+    <h1>푸디픽 <span style="color:var(--accent)">FOODIE's PICK</span></h1>
+    <p class="lede">뉴스레터 <strong>푸디픽</strong> × 화자 <strong>푸디(FOODIE)</strong> × 코스 구성.
+    본문 콘텐츠는 톤을 보여주기 위한 예시이며, 실제 발송 HTML은 이메일 제약(600px 테이블
+    레이아웃·인라인 CSS)에 맞춰 재구현합니다.</p>
+  </header>
+
+  <!-- ============ 최종 시안 ============ -->
+  <div class="section-h">
+    <span class="no">최종 시안</span>
+    <h2>푸디가 고른 한 주를 코스로 차려냅니다</h2>
+    <span class="sub">브리핑의 신뢰감 + 코스의 온기</span>
+  </div>
+  <div class="variant">
+    <div class="email-frame">
+      <div class="email-toolbar">
+        <span>보낸사람 <b>푸디 by 푸드테크센터 &lt;foodie@news.foodtech-center.org&gt;</b></span>
+        <span>제목 <b>푸디픽 #0 | 이번 주 푸드테크 7선 — 소 없이 만든 우유가 왔다</b></span>
+      </div>
+      <div class="email-body">
+        <div class="email fp">
+          <div class="fp-header">
+            <div>
+              <div class="fp-logo">푸디픽<span class="check">✓</span></div>
+              <div class="fp-sub">FOODIE's PICK — 푸디가 고른 푸드테크, 매주 목요일</div>
+            </div>
+            <div class="fp-issue mono">#000 · 2026-07-16</div>
+          </div>
+
+          <div class="fp-pad">
+            <div class="fp-course">
+              <span class="num mono">01</span>
+              <span class="name">아뮤즈부슈</span>
+              <span class="desc">이번 주 숫자 하나</span>
+            </div>
+            <div class="fp-number">
+              <div class="big">₩1,270억</div>
+              <div class="cap">2026 상반기 국내 푸드테크 투자 유치 총액 — 전년 동기 +34%</div>
+            </div>
+
+            <div class="fp-course">
+              <span class="num mono">02</span>
+              <span class="name">에피타이저</span>
+              <span class="desc">헤드라인 픽 3</span>
+            </div>
+            <div class="fp-item">
+              <div class="k mono">KR · 식품저널</div>
+              <a class="title" href="#">CJ제일제당, 정밀발효 유단백 상업 생산 개시</a>
+              <p>국내 대기업 최초. 소 없이 만든 유청 단백질을 음료 제품에 적용.</p>
+            </div>
+            <div class="fp-item">
+              <div class="k mono">KR · 연합뉴스</div>
+              <a class="title" href="#">농식품부, 푸드테크 혁신클러스터 3곳 신규 지정</a>
+              <p>익산·평택·홍성. 입주 기업 모집은 9월 시작.</p>
+            </div>
+            <div class="fp-item">
+              <div class="k mono">GLOBAL · Green Queen</div>
+              <a class="title" href="#">싱가포르, 배양 해산물 판매 승인 확대</a>
+              <p>새우에 이어 어육까지 — 아시아 배양육 규제가 빠르게 열리는 중.</p>
+            </div>
+
+            <div class="fp-course">
+              <span class="num mono">03</span>
+              <span class="name">메인</span>
+              <span class="desc">깊이 볼 뉴스 2</span>
+            </div>
+            <div class="fp-item">
+              <div class="k mono">KR · 식품음료신문</div>
+              <a class="title" href="#">풀무원, 식물성 참치 미국 수출 3배 확대</a>
+              <p>대체 수산물이 대체육보다 빠르게 크는 이유 — 원물 가격과 지속가능성 규제의 동시 압력.</p>
+            </div>
+            <div class="fp-item">
+              <div class="k mono">GLOBAL · AgFunder News</div>
+              <a class="title" href="#">글로벌 애그푸드테크 투자, 2년 만에 반등</a>
+              <p>2026 상반기 +21%. AI 급식·공급망 최적화 분야가 견인.</p>
+            </div>
+
+            <div class="fp-course">
+              <span class="num mono">04</span>
+              <span class="name">사이드</span>
+              <span class="desc">이번 주 논문</span>
+            </div>
+            <div class="fp-item">
+              <div class="k mono">Nature Food · 2026-07</div>
+              <a class="title" href="#">배양육 배지 비용을 90% 낮추는 식물성 성장인자</a>
+              <p>상업 규모 생산의 최대 병목인 배지 단가 문제에 대한 새 접근.</p>
+            </div>
+
+            <div class="fp-course">
+              <span class="num mono">05</span>
+              <span class="name">디저트</span>
+              <span class="desc">커뮤니티</span>
+            </div>
+            <div class="fp-cta">
+              <h4>7월 월례 네트워킹 디너 — "정밀발효의 상업화"</h4>
+              <p>7. 24(금) 19:00 · 서울대 호암교수회관 · 선착순 40석</p>
+              <a class="fp-btn" href="#">참석 신청 →</a>
+            </div>
+
+            <div class="fp-closing">
+              오늘 코스는 여기까지입니다. 다음 주 목요일에 더 신선한 픽으로 차릴게요. — 푸디 드림
+            </div>
+          </div>
+
+          <div class="fp-footer">
+            푸디픽은 푸드테크센터(foodtech-center.org)가 매주 목요일 발행합니다.
+            이 메일에 답장하시면 운영진이 직접 읽습니다.<br>
+            <a href="#">수신거부</a> · <a href="#">지난 호</a> · <a href="#">회원 정보 수정</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">
+      <div class="note-card">
+        <h3>컨셉</h3>
+        <p><strong>푸디픽 × 코스 구성</strong> 하이브리드. 겉은 깔끔한 산업 브리핑,
+        코너 이름은 코스 요리(아뮤즈부슈 → 에피타이저 → 메인 → 사이드 → 디저트).
+        코스 번호가 실제 읽는 순서라 구조 자체가 내비게이션이 됩니다.</p>
+      </div>
+      <div class="note-card">
+        <h3>왜 FOODIE 표기</h3>
+        <p>진짜 영어 단어라 즉시 읽히고 <strong>FOODIE's PICK</strong>이 문법적으로도
+        자연스러움. 단어 자체가 흔해 변별력이 낮으므로, 대외 노출은 항상
+        <strong>"푸디픽"</strong> 조합으로, "푸디" 단독은 화자 이름으로만.</p>
+      </div>
+      <div class="note-card">
+        <h3>클릭 추적 설계</h3>
+        <ul>
+          <li>모든 기사 제목 = 링크 → Resend 클릭 웹훅 → 뉴스별 집계 → Activity Score</li>
+          <li>디저트(행사 CTA) = 최고 가중치 클릭, 매호 1개 고정</li>
+          <li>답장 유도 문구 = 참여 신호 수집 루트</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============ 확정 사항 ============ -->
+  <div class="section-h">
+    <span class="no">확정</span>
+    <h2>이름 체계</h2>
+  </div>
+  <table class="spec">
+    <tbody>
+      <tr><td>뉴스레터명</td><td><strong>푸디픽</strong> (영문 FOODIE's PICK)</td></tr>
+      <tr><td>화자 / 에이전트</td><td><strong>푸디</strong> (FOODIE) — "푸드 뉴스를 맛보고 고르는 미식가"</td></tr>
+      <tr><td>발신자 표기</td><td>푸디 by 푸드테크센터 — 신뢰 주체는 센터, 목소리는 푸디</td></tr>
+      <tr><td>발신 주소</td><td><code>foodie@news.foodtech-center.org</code></td></tr>
+      <tr><td>제목 포맷</td><td>푸디픽 #호수 | 이번 주 푸드테크 N선 — 가장 강한 픽 한 줄</td></tr>
+      <tr><td>코너 구성</td><td>01 아뮤즈부슈(이번 주 숫자) · 02 에피타이저(헤드라인 3) · 03 메인(심층 2) · 04 사이드(논문) · 05 디저트(커뮤니티·행사)</td></tr>
+      <tr><td>발행 주기</td><td>매주 목요일 (주간 싱크 요일과 동일)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="foot-note">
+    <h3>페르소나 운용 원칙</h3>
+    <ul>
+      <li>말투는 존댓말 "합니다"체 고정, 이모지는 제목 1개·본문 0개까지만 — 임원 독자 기준</li>
+      <li>푸디는 오프닝·클로징 1줄에만 등장 — 본문 뉴스는 중립 톤 유지 (AI 티 내지 않기)</li>
+      <li>답장하면 운영진이 실제로 읽는다고 푸터에 명시 — 답장 자체가 참여 신호</li>
+      <li>"바이트(리트리버)"는 탈락했지만 수집 크롤러의 내부 코드네임으로 재활용 가능</li>
+    </ul>
+  </div>
+
+  <div class="foot-note">
+    <h3>실제 이메일 구현 시 제약</h3>
+    <ul>
+      <li>본문 폭 600px · 테이블 레이아웃 · 인라인 CSS — 이 시안의 시각 언어를 그 제약 안에서 재구현</li>
+      <li>이미지 최소화: Gmail은 102KB 초과 시 본문을 잘라내고, 이미지 차단 시 레이아웃이 무너짐 → 텍스트 우선</li>
+      <li>다크모드: 메일 클라이언트의 색 강제 반전 대비, 순백/순흑 대신 톤 있는 색 사용</li>
+      <li>수신거부 링크(unsubscribe_token)는 정보통신망법 필수 요소 — 푸터 고정</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>
