@@ -79,6 +79,9 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
    Supabase 계정은 희정 생성 → 민겸 팀멤버 초대 → 스키마 설계는 민겸.
 
 2. **크롤링은 API/RSS 소스만.** HTML 스크래핑 제외.
+   **뉴스 LLM 분류 체계 = 정부 "푸드테크 10대 핵심분야"** (희정 전달 PDF, 2026-07-12 수령):
+   세포배양식품 / 식물기반식품 / 간편식 / 식품프린팅 / 스마트제조 / 스마트유통 /
+   커스터마이징 / 외식 푸드테크 / 업사이클링 / 친환경포장.
    - 추가 소스: 네이버 뉴스 API(국내 핵심), 언론사 RSS, 학술은 CrossRef/PubMed API.
    - **안정성 수정 필수**: (a) Brave 한도초과/오류 시에도 RSS로 폴백되게 (현재는 키 부재 시에만 폴백),
      (b) 요청 재시도 + 백오프, (c) 발송 전 뉴스 수집 상태 헬스체크·알림.
@@ -128,7 +131,7 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 1. **T-001** 뉴스 수집 안정화: Brave→RSS 폴백 수정 + 재시도 + 발송전 헬스체크. → `docs/tickets/T-001_news-fallback.md`
 2. **T-003(예정)** Resend 웹훅 수신 엔드포인트(open/click/bounce) — 공개 URL 필요(앱 배포 선행).
 3. ~~Supabase 프로젝트 연결~~ ✅ 2026-07-12 완료 — T-002 스키마 5테이블 적용됨(리비전 59dda42e7213).
-   접속 문자열은 `.env`의 `SUPABASE_DATABASE_URL`(비밀번호 포함 — 커밋 금지).
+   접속 문자열은 `.env`의 `SUPABASE_URL`(비밀번호 포함 — 커밋 금지, 접두사 `postgresql+psycopg://` 필요).
 4. 앱 배포(PaaS 선정) + `admin.foodtech-center.org` CNAME 연결.
 5. Activity Score 산출 함수(가중치는 파라미터로) + Active/Dormant 분류 잡(job).
 
