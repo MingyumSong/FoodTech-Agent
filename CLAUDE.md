@@ -19,9 +19,21 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 
 ---
 
-## 현재 코드베이스 상태
+## 신규 코드베이스 (루트) — 2026-07-12 스캐폴딩 완료
 
-- **스택**: FastAPI + SQLModel(ORM). DB는 로컬 SQLite(`data/foodtech.db`) / 운영 PostgreSQL(`DATABASE_URL`) 자동 전환.
+- **스택**: FastAPI + SQLModel + Alembic. uv(Python 3.13). DB: 로컬·테스트 Docker Postgres / 운영 Supabase(`DATABASE_URL`).
+- **구조**: `app/{routes,services,models,lib}` — **Route → Service → Model** 계층. 비즈니스 로직은 서비스에, 라우트는 HTTP만.
+- **참조 구현**: members 수직 슬라이스 (model→migration→service→route→test). 새 기능은 이 패턴을 따른다.
+- **스케줄 작업**: `/jobs/*` 엔드포인트(Bearer `JOBS_TOKEN`, 멱등) ← GitHub Actions 크론이 호출.
+- **테스트/CI**: pytest + 실제 Postgres(트랜잭션 롤백 픽스처). CI = GitHub Actions(ruff+pyright+pytest).
+- **하네스**: `.claude/rules/` 6개 + 스킬(/migrate, /seed-data, /api-test) + 훅(ruff 자동포맷, .env·uv.lock 수정차단).
+  아키텍처 결정 기록은 `scaffold-spec.md`.
+
+## 참고 프로토타입 (`archive/foodtech-hub-deploy/` — 수정 금지)
+
+로직 참고·결함 반면교사 용도로만 쓴다. 가져올 로직: 뉴스 수집, CSV 임포트, 매직링크, 캠페인 발송.
+
+- **스택**: FastAPI + SQLModel(ORM). DB는 로컬 SQLite / 운영 PostgreSQL 자동 전환. (신규에서는 SQLite 폐기)
 - **프론트**: 정적 단일 HTML (`static/index.html` 공개용, `static/admin.html` 관리자용). Chart.js CDN.
 - **이메일**: Resend (`email_client.py`). 키 없으면 DRY RUN 콘솔 출력.
 - **뉴스 수집**: `app.py`의 `refresh_news_cache()` — Brave Search API(주력) + Google News RSS(폴백). JSON 캐시, 24h 크론.
@@ -40,7 +52,7 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 
 ---
 
-## DB 테이블 (db.py)
+## DB 테이블 (프로토타입 db.py — 신규 스키마 설계의 참고)
 
 | 테이블 | 역할 |
 |---|---|
@@ -60,19 +72,22 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 
 ## 이번 세션에서 확정한 결정
 
-1. **DB: PostgreSQL 단일 원본.** (2026-07-08 변경 — 기존 Airtable 안 폐기) 회원 3,000명이라
+1. **DB: PostgreSQL 단일 원본, 호스팅은 Supabase.** (2026-07-08 변경, 07-11 노션 동기화) 회원 3,000명이라
    Airtable 무료 한도(1,000행) 초과 + 추적 이벤트가 대용량이고, Score는 회원×이벤트 JOIN이라
-   같은 DB에 있어야 함. → **Postgres = 회원 + 발송 + 추적 단일 원본**, 관리 UI는 앱의 admin.html,
+   같은 DB에 있어야 함. → **Supabase(Postgres) = 회원 + 발송 + 추적 단일 원본**, 관리 UI는 앱의 admin.html,
    **구글시트는 직원 편집용으로 유지하고 주기적으로 임포트**(임포터가 해당 양식 이미 지원).
+   Supabase 계정은 희정 생성 → 민겸 팀멤버 초대 → 스키마 설계는 민겸.
 
 2. **크롤링은 API/RSS 소스만.** HTML 스크래핑 제외.
    - 추가 소스: 네이버 뉴스 API(국내 핵심), 언론사 RSS, 학술은 CrossRef/PubMed API.
    - **안정성 수정 필수**: (a) Brave 한도초과/오류 시에도 RSS로 폴백되게 (현재는 키 부재 시에만 폴백),
      (b) 요청 재시도 + 백오프, (c) 발송 전 뉴스 수집 상태 헬스체크·알림.
 
-3. **추적 로직에 역량 집중 (3주차 핵심).**
-   - 클릭 추적: 리다이렉트 엔드포인트(`/r/{token}` → 원문 URL, 이벤트 기록 후 302).
-   - 열람 추적: 픽셀(보조 신호로만).
+3. **추적은 Resend 웹훅이 1차 수단.** (2026-07-11 노션 동기화 — 자체 리다이렉트 단독안 대체)
+   - Resend 웹훅(open / click / bounce)을 수신하는 엔드포인트 신설 → 이벤트 테이블에 적재.
+     click 페이로드에 클릭된 URL이 포함되므로 뉴스별 집계 가능.
+   - 자체 리다이렉트(`/r/{token}`)는 웹훅으로 부족할 때(예: 뉴스 아이템 단위 토큰 매핑)만 보조 검토.
+   - 열람(open)은 프록시 오탐 때문에 어차피 보조 신호.
    - 회원별·뉴스별 이벤트 테이블 신설 (member_id, newsletter_id, news_item, event_type, ts).
 
 4. **발송은 4주차에 파일럿으로 조기 시작.** 완벽하지 않아도 시작해서 5·6·7주차 실데이터 누적.
@@ -84,23 +99,47 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 
 6. **대시보드는 자체 개발 대신 기존 BI.** Airtable Interfaces로 시작, 필요 시 Metabase.
 
+7. **LLM 호출은 OpenRouter 게이트웨이.** (2026-07-11 노션 동기화) 계정·크레딧은 랩실(희정),
+   키 하나로 Claude/GPT/Gemini 호출. OpenAI 호환 엔드포인트(`https://openrouter.ai/api/v1`).
+   모델·비용 한도 설정 후 비용 추정 필요.
+
+8. **발신 도메인은 발송 전용 서브도메인** — 메인 도메인 평판 보호.
+   ✅ **완료(2026-07-12)**: `foodtech-center.org` 신규 구입(Cloudflare, 희정 계정 — 민겸 접근 가능),
+   `news.foodtech-center.org`를 Resend에 등록, SPF/DKIM/DMARC 인증 **Verified** (리전 Tokyo).
+   관리자 페이지는 추후 `admin.foodtech-center.org`로 연결 예정(앱 배포 후 CNAME).
+
 ---
+
+## 개발 워크플로 — 티켓 기반 (docs/tickets/)
+
+구현 작업은 `docs/tickets/`의 마크다운 티켓을 요구사항의 단일 진실로 삼는다.
+
+- **티켓이 필요한 문턱**: 여러 세션에 걸치는 작업, DB 스키마 변경, 3파일 이상 수정.
+  그보다 작은 수정(오타, 단일 함수 버그픽스)은 티켓 없이 바로 진행해도 된다.
+- 티켓 양식은 `docs/tickets/_TEMPLATE.md` (Problem / Context / Scope / AC / Verification).
+- 티켓의 **Scope 밖 파일은 수정하지 않는다**. 코딩 전에 수정 파일 목록(계획)을 먼저 출력한다.
+- 완료 기준: Acceptance Criteria 충족 + Verification 절차 통과 → Status를 DONE으로 갱신 후 커밋.
+- 대화에서 계획이 확정되면 그 자리에서 티켓 파일로 저장한다 (티켓 = 합의된 계획의 저장본,
+  다음 세션으로의 핸드오프 문서).
 
 ## 추천 다음 작업 (우선순위 순)
 
-1. 뉴스 수집 안정화: Brave→RSS 폴백 수정 + 재시도 + 발송전 헬스체크.
-2. 추적 이벤트 테이블 + 클릭 리다이렉트 엔드포인트 + 열람 픽셀 구현.
-3. Airtable 연동(회원 동기화) 설계.
+1. **T-001** 뉴스 수집 안정화: Brave→RSS 폴백 수정 + 재시도 + 발송전 헬스체크. → `docs/tickets/T-001_news-fallback.md`
+2. 추적 이벤트 테이블 + **Resend 웹훅 수신 엔드포인트**(open/click/bounce) 구현.
+3. Supabase 프로젝트 연결(스키마 설계·배포) — 희정 계정 생성 대기 중.
 4. Activity Score 산출 함수(가중치는 파라미터로) + Active/Dormant 분류 잡(job).
 
 ---
 
-## 명령어
+## 명령어 (신규 코드베이스 — 루트에서 실행)
 
 ```bash
-pip install -r requirements.txt
-python app.py            # → http://localhost:8000
-python import_members.py members.csv   # 회원 임포트
+docker compose up -d postgres          # 로컬 DB 기동
+uv run alembic upgrade head            # 스키마 적용
+uv run uvicorn app.main:app --reload   # 서버 → http://localhost:8000 (/docs = API 문서)
+uv run pytest -q                       # 테스트 (foodtech_test DB 자동 생성)
+uv run python scripts/seed.py          # 개발 시드 데이터
+uv run ruff check . && uv run pyright  # 린트 + 타입체크
 ```
 
-로컬 기본 DB는 SQLite라 API 키 없이도 뜬다. Brave/DART/Resend 키는 `.env`에 넣으면 활성화.
+프로토타입 구동이 필요하면 `archive/foodtech-hub-deploy/`에서 `pip install -r requirements.txt && python app.py`.

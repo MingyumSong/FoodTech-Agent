@@ -1,0 +1,28 @@
+from fastapi import APIRouter, Depends, Query
+from sqlmodel import Session
+
+from app.db import get_session
+from app.models.member import MemberCreate, MemberRead
+from app.services import members as members_service
+
+router = APIRouter(prefix="/api/members", tags=["members"])
+
+
+@router.get("", response_model=list[MemberRead])
+def list_members(
+    program: str | None = Query(default=None),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+):
+    return members_service.list_members(session, program=program, limit=limit, offset=offset)
+
+
+@router.get("/{member_id}", response_model=MemberRead)
+def get_member(member_id: int, session: Session = Depends(get_session)):
+    return members_service.get_member(session, member_id)
+
+
+@router.post("", response_model=MemberRead, status_code=201)
+def create_member(data: MemberCreate, session: Session = Depends(get_session)):
+    return members_service.create_member(session, data)
