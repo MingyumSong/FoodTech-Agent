@@ -126,6 +126,12 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
     코너: 아뮤즈부슈(숫자)→에피타이저(헤드라인3)→메인(심층2)→사이드(논문)→디저트(행사 CTA).
     목업·운용 원칙은 `docs/branding/newsletter-mockup.html`.
 
+11. **와우 포인트 후보 4개 정리(2026-07-13, 간판 선정은 희정 논의 대기)** — 리서치는 `docs/research/wow-features.md`.
+    W1 원클릭 투표 / W2 AI 푸디 답장(Resend Inbound, 2025-11 출시 — **간판 제안**) /
+    W3 클릭 이력 기반 개인 큐레이션 / W4 매직링크 개인 리캡 페이지. AMP·CSS 인터랙티브는 배제 확정.
+    ⚠️ 파생 이슈: 디저트 코너(행사 CTA) 포함 호는 정보통신망법상 "(광고)" 표기 필요 가능 — 법무 확인,
+    Outlook Safe Links 봇 클릭은 T-003 추적 정확도 전체에 영향 — 웹훅 설계 때 방어 포함.
+
 ---
 
 ## 개발 워크플로 — 티켓 기반 (docs/tickets/)
@@ -145,6 +151,7 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 1. **T-001** 뉴스 수집 안정화: Brave→RSS 폴백 수정 + 재시도 + 발송전 헬스체크. → `docs/tickets/T-001_news-fallback.md`
    소스 풀은 `docs/research/news-sources.md` 확정 리스트 사용 (네이버 API 키 도착 시 착수 가능).
 2. **T-003(예정)** Resend 웹훅 수신 엔드포인트(open/click/bounce) — 공개 URL 필요(앱 배포 선행).
+   설계 시 함께 결정: Google News 링크 디코딩, Safe Links 봇 클릭 방어, 와우 포인트(W1~W4) 이벤트 연계.
 3. ~~Supabase 프로젝트 연결~~ ✅ 2026-07-12 완료 — T-002 스키마 5테이블 적용됨(리비전 59dda42e7213).
    접속 문자열은 `.env`의 `SUPABASE_URL`(비밀번호 포함 — 커밋 금지, 접두사 `postgresql+psycopg://` 필요).
 4. 앱 배포(PaaS 선정) + `admin.foodtech-center.org` CNAME 연결.
