@@ -25,6 +25,8 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 - **구조**: `app/{routes,services,models,lib}` — **Route → Service → Model** 계층. 비즈니스 로직은 서비스에, 라우트는 HTTP만.
 - **참조 구현**: members 수직 슬라이스 (model→migration→service→route→test). 새 기능은 이 패턴을 따른다.
 - **스케줄 작업**: `/jobs/*` 엔드포인트(Bearer `JOBS_TOKEN`, 멱등) ← GitHub Actions 크론이 호출.
+- **발송 카나리**: `daily-send-check.yml` 크론이 매일 09:00 KST Resend 검증 메일 1통 발송
+  (GitHub Secrets: `RESEND_API_KEY`, `CHECK_EMAIL`). 실패 시 Actions 실패 알림 = 발송 경로 이상 신호.
 - **테스트/CI**: pytest + 실제 Postgres(트랜잭션 롤백 픽스처). CI = GitHub Actions(ruff+pyright+pytest).
 - **하네스**: `.claude/rules/` 6개 + 스킬(/migrate, /seed-data, /api-test) + 훅(ruff 자동포맷, .env·uv.lock 수정차단).
   아키텍처 결정 기록은 `scaffold-spec.md`.
