@@ -199,13 +199,14 @@
     <p class="eyebrow">FoodTech Hub · 데이터 모델</p>
     <h1>회원 참여 추적 시스템 · ERD 초안</h1>
     <p class="lede">회원 관리 → 뉴스레터 발송 → 참여 추적 → Activity Score → 활동/비활동 분류.
-      데이터가 흐르는 8개 테이블의 구조와 관계를 정리한 설계 초안입니다.</p>
+      <b>구현 완료 5개</b>(T-002, 실선) + <b>예정 5개</b>(점선) 테이블의 구조와 관계.</p>
     <div class="meta">
-      <span>버전 <b>draft v0.2</b></span>
-      <span>기준일 <b>2026-07-08</b></span>
-      <span>테이블 <b>8개</b></span>
-      <span>대상 규모 <b>회원 ~3,000명</b></span>
-      <span>DB <b>PostgreSQL</b> (개발 SQLite)</span>
+      <span>버전 <b>v0.3</b></span>
+      <span>기준일 <b>2026-07-12</b></span>
+      <span>테이블 <b>구현 5 · 예정 5</b></span>
+      <span>대상 규모 <b>회원 ~3,000명 (실명단 4,002행)</b></span>
+      <span>DB <b>PostgreSQL 16</b> — 로컬 Docker / 운영 Supabase</span>
+      <span>마이그레이션 <b>Alembic · rev 59dda42e7213</b></span>
     </div>
   </header>
 
@@ -222,6 +223,7 @@
           .box-auth { fill: var(--dom-auth-soft); stroke: var(--dom-auth); stroke-dasharray: 5 4; }
           .link { stroke: var(--line-strong); stroke-width: 1.6; fill: none; }
           .link-core { stroke: var(--dom-core); stroke-width: 2; fill: none; }
+          .plan { stroke-dasharray: 5 4; opacity: .75; }
           .tn { fill: var(--ink); font: 600 14px var(--font-mono); }
           .tk { fill: var(--muted); font: 500 11px var(--font-sans); }
           .card { fill: var(--accent); font: 700 12px var(--font-mono); }
@@ -236,9 +238,12 @@
       <!-- members -> events -->
       <path class="link-core" d="M220,300 C300,330 300,352 358,356"/>
       <text class="card" x="232" y="316">1</text><text class="cardc" x="332" y="352">N</text>
-      <!-- members -> member_activity -->
-      <path class="link" d="M130,322 L130,450"/>
-      <text class="card" x="138" y="342">1</text><text class="card" x="138" y="446">N</text>
+      <!-- members -> member_programs -->
+      <path class="link" d="M130,320 L130,352"/>
+      <text class="card" x="138" y="334">1</text><text class="card" x="138" y="350">N</text>
+      <!-- members -> member_activity (예정) -->
+      <path class="link plan" d="M40,296 C12,296 12,478 40,478"/>
+      <text class="card" x="18" y="290">1</text><text class="card" x="18" y="472">N</text>
       <!-- newsletters -> send_logs -->
       <path class="link" d="M670,150 L544,150"/>
       <text class="card" x="652" y="142">1</text><text class="card" x="552" y="142">N</text>
@@ -251,8 +256,8 @@
       <!-- news_items -> newsletter_news -->
       <path class="link" d="M872,352 L842,352"/>
       <text class="card" x="864" y="344">1</text><text class="card" x="846" y="344">N</text>
-      <!-- news_items -> events -->
-      <path class="link-core" d="M898,392 C760,478 520,430 512,398"/>
+      <!-- news_items -> events (예정: 현재는 url 문자열 매칭) -->
+      <path class="link-core plan" d="M898,392 C760,478 520,430 512,398"/>
       <text class="cardc" x="892" y="404">1</text><text class="cardc" x="522" y="392">N</text>
 
       <!-- boxes -->
@@ -260,30 +265,34 @@
       <rect class="box box-member" x="40" y="248" width="180" height="72" rx="12"/>
       <text class="tn" x="58" y="282">members</text>
       <text class="tk" x="58" y="302">회원 명부 · 원본</text>
-      <!-- member_activity -->
-      <rect class="box box-core" x="40" y="450" width="180" height="64" rx="12"/>
+      <!-- member_programs -->
+      <rect class="box box-member" x="40" y="352" width="180" height="64" rx="12"/>
+      <text class="tn" x="58" y="383">member_programs</text>
+      <text class="tk" x="58" y="402">프로그램 소속 M:N</text>
+      <!-- member_activity (예정) -->
+      <rect class="box box-core plan" x="40" y="450" width="180" height="64" rx="12"/>
       <text class="tn" x="58" y="481">member_activity</text>
-      <text class="tk" x="58" y="500">★ Score 스냅샷</text>
+      <text class="tk" x="58" y="500">★ Score 스냅샷 · 예정</text>
       <!-- send_logs -->
       <rect class="box box-core" x="360" y="114" width="184" height="72" rx="12"/>
       <text class="tn" x="378" y="148">send_logs</text>
       <text class="tk" x="378" y="168">발송 1건 기록</text>
-      <!-- events -->
+      <!-- engagement_events -->
       <rect class="box box-core" x="360" y="322" width="184" height="80" rx="12"/>
-      <text class="tn" x="378" y="358">events</text>
-      <text class="cardc" x="378" y="378" style="font:700 11px var(--font-sans)">★ 참여 이벤트 · 핵심</text>
+      <text class="tn" x="370" y="358" style="font-size:12.5px">engagement_events</text>
+      <text class="cardc" x="378" y="378" style="font:700 11px var(--font-sans)">★ 웹훅 이벤트 · 핵심</text>
       <!-- newsletters -->
       <rect class="box box-content" x="672" y="114" width="176" height="72" rx="12"/>
       <text class="tn" x="690" y="148">newsletters</text>
       <text class="tk" x="690" y="168">캠페인</text>
-      <!-- newsletter_news -->
-      <rect class="box box-content" x="648" y="322" width="200" height="62" rx="12"/>
+      <!-- newsletter_news (예정) -->
+      <rect class="box box-content plan" x="648" y="322" width="200" height="62" rx="12"/>
       <text class="tn" x="666" y="352">newsletter_news</text>
-      <text class="tk" x="666" y="371">뉴스레터 ↔ 뉴스</text>
-      <!-- news_items -->
-      <rect class="box box-content" x="872" y="322" width="152" height="72" rx="12"/>
+      <text class="tk" x="666" y="371">뉴스레터 ↔ 뉴스 · 예정</text>
+      <!-- news_items (예정) -->
+      <rect class="box box-content plan" x="872" y="322" width="152" height="72" rx="12"/>
       <text class="tn" x="890" y="356">news_items</text>
-      <text class="tk" x="890" y="376">수집 뉴스</text>
+      <text class="tk" x="890" y="376">수집 뉴스 · 예정</text>
       <!-- magic_links -->
       <rect class="box box-auth" x="672" y="500" width="164" height="56" rx="12"/>
       <text class="tn" x="690" y="526" style="font-size:13px">magic_links</text>
@@ -301,7 +310,8 @@
     <span class="item"><span class="dot" style="background:var(--dom-auth)"></span>관리자 인증 (부가)</span>
     <span class="item"><span class="badge b-pk">PK</span> 기본키</span>
     <span class="item"><span class="badge b-fk">FK</span> 외래키</span>
-    <span class="item"><span class="badge b-new">★</span> 신규/핵심</span>
+    <span class="item"><span class="badge b-new">★</span> 핵심</span>
+    <span class="item"><span class="dot" style="background:transparent;border:2px dashed var(--line-strong)"></span>점선 = 예정(미구현)</span>
   </div>
 
   <!-- ===================== ENTITIES ===================== -->
@@ -312,32 +322,49 @@
     <div class="entity" data-dom="member">
       <div class="entity-head">
         <div class="tname">members</div>
-        <div class="role">회원 명부 (단일 원본). 3,000명이 여러 프로그램에 걸쳐 있음.</div>
+        <div class="role">회원 명부 (단일 원본, 사람 단위). 프로그램 소속은 member_programs로 분리. ✅ 구현</div>
       </div>
       <ul class="fields">
         <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">int</span></li>
         <li><span class="fname">name</span><span class="ftype">text · 필수</span></li>
-        <li><span class="fname">email</span><span class="ftype">text · index</span></li>
+        <li><span class="fname">email</span><span class="ftype">text · index · <b>중복 허용</b></span></li>
         <li><span class="fname">phone</span><span class="ftype">text</span></li>
-        <li><span class="fname">program <span class="badge b-new">★</span></span><span class="ftype">text · 과정 구분</span></li>
-        <li><span class="fname">cohort</span><span class="ftype">text · 기수</span></li>
-        <li><span class="fname">category</span><span class="ftype">기업/기관/대학/언론</span></li>
-        <li><span class="fname">organization</span><span class="ftype">text · 소속</span></li>
+        <li><span class="fname">category</span><span class="ftype">구분4: 산업계/학계/기관/정부/언론</span></li>
+        <li><span class="fname">subcategory</span><span class="ftype">구분5: 스타트업/대기업…</span></li>
+        <li><span class="fname">membership_type</span><span class="ftype">구분3: 개인/단체</span></li>
+        <li><span class="fname">organization · division</span><span class="ftype">text · 소속</span></li>
         <li><span class="fname">position · location</span><span class="ftype">text</span></li>
-        <li><span class="fname">membership_status</span><span class="ftype">text</span></li>
-        <li><span class="fname">subscribed</span><span class="ftype">bool</span></li>
+        <li><span class="fname">business_area</span><span class="ftype">text · 사업/연구분야</span></li>
+        <li><span class="fname">membership_status · payment_history · benefit_pct · council_label</span><span class="ftype">text</span></li>
+        <li><span class="fname">subscribed</span><span class="ftype">bool · 기본 true</span></li>
         <li><span class="fname">unsubscribe_token</span><span class="ftype">text <span class="badge b-uq">UQ</span></span></li>
-        <li><span class="fname">current_score <span class="badge b-new">★</span></span><span class="ftype">float · 최신 스코어</span></li>
-        <li><span class="fname">current_state <span class="badge b-new">★</span></span><span class="ftype">active / dormant</span></li>
-        <li><span class="fname">created_at · updated_at</span><span class="ftype">datetime</span></li>
+        <li><span class="fname">notes</span><span class="ftype">text</span></li>
+        <li><span class="fname">current_score · current_state</span><span class="ftype">Score 티켓 때 추가 예정</span></li>
+        <li><span class="fname">created_at · updated_at</span><span class="ftype">timestamptz</span></li>
+      </ul>
+    </div>
+
+    <!-- member_programs -->
+    <div class="entity" data-dom="member">
+      <div class="entity-head">
+        <div class="tname">member_programs <span class="star">★</span></div>
+        <div class="role">회원↔프로그램 M:N. 실명단(4,002행 vs 고유 이메일 3,240)이 사람×프로그램 구조라 분리. ✅ 구현</div>
+      </div>
+      <ul class="fields">
+        <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">int</span></li>
+        <li><span class="fname">member_id <span class="badge b-fk">FK</span></span><span class="ftype">→ members · index</span></li>
+        <li><span class="fname">program</span><span class="ftype">구분1: 협의회/최고책임자/학과/사업화</span></li>
+        <li><span class="fname">cohort</span><span class="ftype">구분2: 원우(N기) · 프로그램 속성</span></li>
+        <li><span class="fname">(member_id, program)</span><span class="ftype"><span class="badge b-uq">UQ</span> 복합</span></li>
+        <li><span class="fname">created_at</span><span class="ftype">timestamptz</span></li>
       </ul>
     </div>
 
     <!-- news_items -->
     <div class="entity" data-dom="content">
       <div class="entity-head">
-        <div class="tname">news_items <span class="star">★</span></div>
-        <div class="role">수집한 뉴스. JSON 캐시 → 테이블로 승격(뉴스별 조회 추적하려면 ID 필요).</div>
+        <div class="tname">news_items</div>
+        <div class="role">⏳ 예정 (뉴스 수집 티켓). 그전까지 뉴스 클릭은 engagement_events.url 문자열로 기록.</div>
       </div>
       <ul class="fields">
         <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">int</span></li>
@@ -356,14 +383,14 @@
     <div class="entity" data-dom="content">
       <div class="entity-head">
         <div class="tname">newsletters</div>
-        <div class="role">관리자가 작성한 발송 캠페인.</div>
+        <div class="role">관리자가 작성한 발송 캠페인. ✅ 구현</div>
       </div>
       <ul class="fields">
         <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">int</span></li>
         <li><span class="fname">subject</span><span class="ftype">text</span></li>
         <li><span class="fname">html_body</span><span class="ftype">text</span></li>
-        <li><span class="fname">status</span><span class="ftype">draft/sending/sent</span></li>
-        <li><span class="fname">target_filter</span><span class="ftype">json · 세그먼트</span></li>
+        <li><span class="fname">status</span><span class="ftype">draft/sending/sent/failed</span></li>
+        <li><span class="fname">target_filter</span><span class="ftype">jsonb · 세그먼트 조건</span></li>
         <li><span class="fname">total_recipients</span><span class="ftype">int</span></li>
         <li><span class="fname">sent_count · failed_count</span><span class="ftype">int</span></li>
         <li><span class="fname">created_by</span><span class="ftype">text · admin</span></li>
@@ -374,8 +401,8 @@
     <!-- newsletter_news -->
     <div class="entity" data-dom="content">
       <div class="entity-head">
-        <div class="tname">newsletter_news <span class="star">★</span></div>
-        <div class="role">뉴스레터 ↔ 뉴스 N:N 연결. 어떤 뉴스가 어떤 호에 실렸는지.</div>
+        <div class="tname">newsletter_news</div>
+        <div class="role">⏳ 예정. 뉴스레터 ↔ 뉴스 N:N 연결 — news_items와 함께 도입.</div>
       </div>
       <ul class="fields">
         <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">int</span></li>
@@ -389,7 +416,7 @@
     <div class="entity" data-dom="core">
       <div class="entity-head">
         <div class="tname">send_logs</div>
-        <div class="role">뉴스레터 1통(캠페인 × 회원)의 발송 결과 로그.</div>
+        <div class="role">뉴스레터 1통(캠페인 × 회원)의 발송 결과. 열람·클릭은 engagement_events 소관. ✅ 구현</div>
       </div>
       <ul class="fields">
         <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">int</span></li>
@@ -397,34 +424,37 @@
         <li><span class="fname">member_id <span class="badge b-fk">FK</span></span><span class="ftype">→ members</span></li>
         <li><span class="fname">email</span><span class="ftype">text</span></li>
         <li><span class="fname">status</span><span class="ftype">queued/sent/failed/bounced</span></li>
-        <li><span class="fname">provider_id</span><span class="ftype">text · Resend id</span></li>
+        <li><span class="fname">provider_id</span><span class="ftype"><span class="badge b-uq">UQ</span> Resend id · 웹훅 역추적 조인 키</span></li>
         <li><span class="fname">error</span><span class="ftype">text</span></li>
         <li><span class="fname">created_at</span><span class="ftype">datetime</span></li>
       </ul>
     </div>
 
-    <!-- events -->
+    <!-- engagement_events -->
     <div class="entity" data-dom="core">
       <div class="entity-head">
-        <div class="tname">events <span class="star">★ 핵심</span></div>
-        <div class="role">참여 이벤트(열람·클릭) 로그. 프로젝트의 심장 · 대용량 테이블.</div>
+        <div class="tname">engagement_events <span class="star">★ 핵심</span></div>
+        <div class="role">참여 이벤트 로그 — Resend 웹훅 적재. 프로젝트의 심장 · 대용량. ✅ 구현</div>
       </div>
       <ul class="fields">
-        <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">int</span></li>
-        <li><span class="fname">member_id <span class="badge b-fk">FK</span></span><span class="ftype">→ members</span></li>
+        <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">bigint</span></li>
+        <li><span class="fname">send_log_id <span class="badge b-fk">FK</span></span><span class="ftype">→ send_logs · index</span></li>
+        <li><span class="fname">member_id <span class="badge b-fk">FK</span></span><span class="ftype">→ members · 수신 시 해석(비정규화)</span></li>
         <li><span class="fname">newsletter_id <span class="badge b-fk">FK</span></span><span class="ftype">→ newsletters</span></li>
-        <li><span class="fname">news_item_id <span class="badge b-fk">FK</span></span><span class="ftype">→ news_items · null 허용</span></li>
-        <li><span class="fname">event_type</span><span class="ftype">open / click</span></li>
-        <li><span class="fname">ip · user_agent</span><span class="ftype">text</span></li>
-        <li><span class="fname">created_at</span><span class="ftype">datetime</span></li>
+        <li><span class="fname">event_type</span><span class="ftype">delivered/opened/clicked/bounced/complained/unsubscribed</span></li>
+        <li><span class="fname">url</span><span class="ftype">text · 클릭된 URL → 뉴스별 집계</span></li>
+        <li><span class="fname">provider_event_id</span><span class="ftype"><span class="badge b-uq">UQ</span> 웹훅 재시도 멱등</span></li>
+        <li><span class="fname">payload</span><span class="ftype">jsonb · 웹훅 원본 보존</span></li>
+        <li><span class="fname">occurred_at · created_at</span><span class="ftype">timestamptz · 발생/적재 구분</span></li>
+        <li><span class="fname">(member_id, occurred_at) · (newsletter_id, event_type)</span><span class="ftype">복합 index</span></li>
       </ul>
     </div>
 
     <!-- member_activity -->
     <div class="entity" data-dom="core">
       <div class="entity-head">
-        <div class="tname">member_activity <span class="star">★</span></div>
-        <div class="role">주기적으로 산출하는 Activity Score 스냅샷 + 활동/비활동 분류. 최신 값은 members.current_score로 복제.</div>
+        <div class="tname">member_activity</div>
+        <div class="role">⏳ 예정 (Score 티켓). 가중치는 파일럿 실데이터(5~7주차)로 확정 후 구현. 최신 값은 members.current_score로 복제 예정.</div>
       </div>
       <ul class="fields">
         <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">int</span></li>
@@ -441,7 +471,7 @@
     <div class="entity" data-dom="auth">
       <div class="entity-head">
         <div class="tname">magic_links</div>
-        <div class="role">관리자 로그인용 일회용 토큰 (15분·1회). 회원 아님 — 직원용.</div>
+        <div class="role">⏳ 예정 (관리자 인증 티켓). 로그인용 일회용 토큰 (15분·1회) — 직원용.</div>
       </div>
       <ul class="fields">
         <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">int</span></li>
@@ -456,7 +486,7 @@
     <div class="entity" data-dom="auth">
       <div class="entity-head">
         <div class="tname">admin_sessions</div>
-        <div class="role">매직링크 클릭 후 발급되는 관리자 세션 (30일, 쿠키).</div>
+        <div class="role">⏳ 예정 (관리자 인증 티켓). 매직링크 클릭 후 발급되는 세션 (30일, 쿠키).</div>
       </div>
       <ul class="fields">
         <li><span class="fname">id <span class="badge b-pk">PK</span></span><span class="ftype">int</span></li>
@@ -477,14 +507,16 @@
         <tr><th style="width:34%">관계</th><th style="width:12%">카디널리티</th><th>의미</th></tr>
       </thead>
       <tbody>
+        <tr><td class="pair">members → member_programs</td><td class="card">1 : N</td><td class="desc">한 회원의 여러 프로그램 소속 (M:N의 회원 쪽) · 세그먼트 발송 기준</td></tr>
         <tr><td class="pair">members → send_logs</td><td class="card">1 : N</td><td class="desc">한 회원에게 여러 번 발송된 기록</td></tr>
-        <tr><td class="pair">members → events</td><td class="card">1 : N</td><td class="desc">한 회원의 여러 열람·클릭 이벤트</td></tr>
-        <tr><td class="pair">members → member_activity</td><td class="card">1 : N</td><td class="desc">기간별 Score 스냅샷 이력</td></tr>
+        <tr><td class="pair">members → engagement_events</td><td class="card">1 : N</td><td class="desc">한 회원의 여러 참여 이벤트 → Activity Score의 원천</td></tr>
+        <tr><td class="pair">send_logs → engagement_events</td><td class="card">1 : N</td><td class="desc">발송 1건에서 발생한 이벤트들. 웹훅의 email_id = provider_id로 연결</td></tr>
         <tr><td class="pair">newsletters → send_logs</td><td class="card">1 : N</td><td class="desc">한 캠페인이 여러 수신자에게 발송</td></tr>
-        <tr><td class="pair">newsletters → events</td><td class="card">1 : N</td><td class="desc">한 캠페인에서 발생한 여러 참여</td></tr>
-        <tr><td class="pair">newsletters ↔ news_items</td><td class="card">N : N</td><td class="desc">newsletter_news로 연결 (호마다 여러 뉴스)</td></tr>
-        <tr><td class="pair">news_items → events</td><td class="card">1 : N</td><td class="desc">뉴스별 클릭 집계 → 인기 콘텐츠 파악</td></tr>
-        <tr><td class="pair">magic_links · admin_sessions</td><td class="card">—</td><td class="desc">email 문자열로 관리자 식별. members와 FK 없는 별개 인증계</td></tr>
+        <tr><td class="pair">newsletters → engagement_events</td><td class="card">1 : N</td><td class="desc">한 캠페인에서 발생한 여러 참여</td></tr>
+        <tr><td class="pair">newsletters ↔ news_items</td><td class="card">N : N</td><td class="desc">⏳ 예정 — newsletter_news로 연결 (호마다 여러 뉴스)</td></tr>
+        <tr><td class="pair">news_items → engagement_events</td><td class="card">1 : N</td><td class="desc">⏳ 예정 — 그전까지는 events.url 문자열 매칭으로 뉴스별 클릭 집계</td></tr>
+        <tr><td class="pair">members → member_activity</td><td class="card">1 : N</td><td class="desc">⏳ 예정 — 기간별 Score 스냅샷 이력</td></tr>
+        <tr><td class="pair">magic_links · admin_sessions</td><td class="card">—</td><td class="desc">⏳ 예정 — email 문자열로 관리자 식별. members와 FK 없는 별개 인증계</td></tr>
       </tbody>
     </table>
   </div>
@@ -493,16 +525,16 @@
   <h2>설계 노트</h2>
   <div class="notes">
     <div class="note core">
-      <h3>추적 토큰 방식</h3>
-      <p>뉴스 링크를 <code>/r/{token}</code>으로 감싸 클릭 시 이벤트 기록 후 원문으로 302. 열람은 <code>/o/{token}</code> 픽셀. 토큰에 회원·뉴스레터·뉴스를 <b>서명 인코딩</b>해 별도 토큰 테이블이 필요 없음.</p>
+      <h3>추적은 Resend 웹훅 (v0.3 변경)</h3>
+      <p>Resend 웹훅(open/click/bounce)을 수신해 <code>engagement_events</code>에 적재. 웹훅 재시도 중복은 <code>provider_event_id</code> UNIQUE로 멱등 처리, 원본은 <code>payload</code>(jsonb) 보존. v0.2의 자체 리다이렉트(<code>/r/{token}</code>)는 뉴스 아이템 단위 정밀 추적이 필요할 때만 보조 검토.</p>
     </div>
     <div class="note">
       <h3>Score는 신뢰도 순위 도구</h3>
       <p>열람(open)은 Apple Mail·Gmail 프록시로 부풀려짐 → <b>클릭 중심</b>, open은 보조. 정밀 지표가 아니라 상대적 순위로 취급.</p>
     </div>
     <div class="note">
-      <h3>program 세그먼트</h3>
-      <p>3,000명이 4개 프로그램(최고책임자·계약학과·사업화·협의회)에 걸침. <code>program</code> + <code>target_filter</code>로 전원이 아닌 <b>세그먼트 단위 발송</b>.</p>
+      <h3>program은 M:N (v0.3 변경)</h3>
+      <p>실명단 분석 결과 한 사람이 여러 프로그램에 소속(4,002행 vs 고유 이메일 3,240) → <code>member_programs</code> 조인 테이블로 분리. 기수(cohort)는 프로그램에 딸린 속성. <code>target_filter</code>와 조합해 <b>세그먼트 단위 발송</b>.</p>
     </div>
     <div class="note core">
       <h3>커스터마이즈 범위</h3>
@@ -513,13 +545,14 @@
       <p><code>members.current_score</code>·<code>current_state</code>에 최신값을 복제해 두어, "스코어 높은 회원만" 같은 <b>세그먼트 추림이 즉시</b> 가능.</p>
     </div>
     <div class="note">
-      <h3>DB 자동 전환</h3>
-      <p><code>DATABASE_URL</code>이 있으면 PostgreSQL, 없으면 <code>SQLite</code>. 개발은 무설정 SQLite, 운영은 무료 Postgres(Supabase/Neon).</p>
+      <h3>로컬 Docker ↔ 운영 Supabase (v0.3 변경)</h3>
+      <p>SQLite 폐기. 로컬은 Docker Postgres 16, 운영은 Supabase — 둘 다 같은 Alembic 마이그레이션으로 재생. <code>DATABASE_URL</code>만 교체하면 동일 스키마. 2026-07-12 양쪽 모두 rev <code>59dda42e7213</code> 적용 확인.</p>
     </div>
   </div>
 
   <footer>
-    FoodTech Hub 데이터 모델 · draft v0.2 · 2026-07-08 — 검토용 초안. 목요일 싱크에서 확정 예정.
+    FoodTech Hub 데이터 모델 · v0.3 · 2026-07-12 — T-002 구현 반영(구현 5 · 예정 5).
+    변경 이력: v0.2(07-08) 리다이렉트 추적 설계 → v0.3 Resend 웹훅 + member_programs 분리(실명단 반영).
   </footer>
 </div>
 </body>

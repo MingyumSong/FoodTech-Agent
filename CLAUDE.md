@@ -101,7 +101,8 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 
 7. **LLM 호출은 OpenRouter 게이트웨이.** (2026-07-11 노션 동기화) 계정·크레딧은 랩실(희정),
    키 하나로 Claude/GPT/Gemini 호출. OpenAI 호환 엔드포인트(`https://openrouter.ai/api/v1`).
-   모델·비용 한도 설정 후 비용 추정 필요.
+   ✅ 키 수령(`.env`의 OPENROUTER_API_KEY), 잔액 $25, **키 한도 $25 설정 완료**(2026-07-12).
+   모델 선정·비용 추정은 뉴스 분류 드라이런 때.
 
 8. **발신 도메인은 발송 전용 서브도메인** — 메인 도메인 평판 보호.
    ✅ **완료(2026-07-12)**: `foodtech-center.org` 신규 구입(Cloudflare, 희정 계정 — 민겸 접근 가능),
@@ -125,9 +126,11 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 ## 추천 다음 작업 (우선순위 순)
 
 1. **T-001** 뉴스 수집 안정화: Brave→RSS 폴백 수정 + 재시도 + 발송전 헬스체크. → `docs/tickets/T-001_news-fallback.md`
-2. 추적 이벤트 테이블 + **Resend 웹훅 수신 엔드포인트**(open/click/bounce) 구현.
-3. Supabase 프로젝트 연결(스키마 설계·배포) — 희정 계정 생성 대기 중.
-4. Activity Score 산출 함수(가중치는 파라미터로) + Active/Dormant 분류 잡(job).
+2. **T-003(예정)** Resend 웹훅 수신 엔드포인트(open/click/bounce) — 공개 URL 필요(앱 배포 선행).
+3. ~~Supabase 프로젝트 연결~~ ✅ 2026-07-12 완료 — T-002 스키마 5테이블 적용됨(리비전 59dda42e7213).
+   접속 문자열은 `.env`의 `SUPABASE_DATABASE_URL`(비밀번호 포함 — 커밋 금지).
+4. 앱 배포(PaaS 선정) + `admin.foodtech-center.org` CNAME 연결.
+5. Activity Score 산출 함수(가중치는 파라미터로) + Active/Dormant 분류 잡(job).
 
 ---
 
