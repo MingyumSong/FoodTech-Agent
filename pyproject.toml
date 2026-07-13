@@ -10,6 +10,8 @@ dependencies = [
     "alembic>=1.14",
     "psycopg[binary]>=3.2",
     "pydantic-settings>=2.6",
+    "httpx>=0.28.1",
+    "feedparser>=6.0.12",
 ]
 
 [build-system]

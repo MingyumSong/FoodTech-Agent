@@ -1,7 +1,11 @@
 # T-001 뉴스 수집 안정화 — 폴백 + 재시도 + 헬스체크 (신규 구현)
 
 Type: TASK
-Status: TODO
+Status: DONE (2026-07-13 — AC 4/4 충족. 라이브 검증: 실키 기준선 80건(naver+brave),
+잘못된 Brave 키 → overseas=rss 폴백, 키 전무 → 양쪽 rss 80건, 헬스체크 corrupt/missing 신호 확인.
+pytest 27개 통과, ruff·pyright 클린. 구현: app/lib/http.py(백오프 재시도),
+app/services/news_sources.py(공용 쿼리·피드 레지스트리), app/services/news.py(폴백 오케스트레이터+캐시+헬스체크),
+POST /jobs/news-refresh, GET /health/news)
 
 ## Problem
 

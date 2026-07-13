@@ -148,8 +148,9 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 
 ## 추천 다음 작업 (우선순위 순)
 
-1. **T-001** 뉴스 수집 안정화: Brave→RSS 폴백 수정 + 재시도 + 발송전 헬스체크. → `docs/tickets/T-001_news-fallback.md`
-   소스 풀은 `docs/research/news-sources.md` 확정 리스트 사용 (네이버 API 키 도착 시 착수 가능).
+1. ~~T-001 뉴스 수집 안정화~~ ✅ 2026-07-13 완료 — 네이버(국내 1차)+Brave(해외 1차) → 결과 기반 RSS 폴백,
+   백오프 재시도, `POST /jobs/news-refresh` + `GET /health/news`(발송 전 헬스체크). 캐시는 `data/news_cache.json`.
+   ⚠️ 후속: 24h 수집 크론 워크플로 추가 필요(발송 티켓과 함께), 학술(OpenAlex) 수집은 별도 티켓.
 2. **T-003(예정)** Resend 웹훅 수신 엔드포인트(open/click/bounce) — 공개 URL 필요(앱 배포 선행).
    설계 시 함께 결정: Google News 링크 디코딩, Safe Links 봇 클릭 방어, 와우 포인트(W1~W4) 이벤트 연계.
 3. ~~Supabase 프로젝트 연결~~ ✅ 2026-07-12 완료 — T-002 스키마 5테이블 적용됨(리비전 59dda42e7213).

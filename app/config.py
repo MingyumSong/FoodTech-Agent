@@ -8,5 +8,13 @@ class Settings(BaseSettings):
     jobs_token: str = ""
     app_env: str = "local"
 
+    # 뉴스 수집 (T-001)
+    naver_client_id: str = ""
+    naver_client_secret: str = ""
+    brave_search_api_key: str = ""
+    news_cache_path: str = "data/news_cache.json"
+    news_max_age_hours: int = 36  # 헬스체크: 캐시가 이보다 오래되면 stale
+    news_min_items: int = 5  # 헬스체크: 캐시 items가 이보다 적으면 실패 신호
+
 
 settings = Settings()
