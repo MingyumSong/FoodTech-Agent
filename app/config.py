@@ -16,5 +16,8 @@ class Settings(BaseSettings):
     news_max_age_hours: int = 36  # 헬스체크: 캐시가 이보다 오래되면 stale
     news_min_items: int = 5  # 헬스체크: 캐시 items가 이보다 적으면 실패 신호
 
+    # LLM (결정 7: OpenRouter 게이트웨이)
+    openrouter_api_key: str = ""
+
 
 settings = Settings()

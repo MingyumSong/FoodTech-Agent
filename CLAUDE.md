@@ -108,7 +108,10 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 7. **LLM 호출은 OpenRouter 게이트웨이.** (2026-07-11 노션 동기화) 계정·크레딧은 랩실(희정),
    키 하나로 Claude/GPT/Gemini 호출. OpenAI 호환 엔드포인트(`https://openrouter.ai/api/v1`).
    ✅ 키 수령(`.env`의 OPENROUTER_API_KEY), 잔액 $25, **키 한도 $25 설정 완료**(2026-07-12).
-   모델 선정·비용 추정은 뉴스 분류 드라이런 때.
+   ✅ **분류 모델 확정(2026-07-14, T-004 드라이런)**: `google/gemini-2.5-flash` 주력
+   (실뉴스 80건 4모델 비교 — 일치율 1위·$0.0077/80건·16s, 월 비용 < $1.5 추정).
+   haiku-4.5는 스팟체크 보조, gpt-5-mini(지연)·flash-lite("해당없음" 미사용) 제외.
+   근거: `docs/research/llm-classification-dryrun.md`.
 
 8. **발신 도메인은 발송 전용 서브도메인** — 메인 도메인 평판 보호.
    ✅ **완료(2026-07-12)**: `foodtech-center.org` 신규 구입(Cloudflare, 희정 계정 — 민겸 접근 가능),
