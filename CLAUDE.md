@@ -98,6 +98,7 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 
 4. **발송은 4주차에 파일럿으로 조기 시작.** 완벽하지 않아도 시작해서 5·6·7주차 실데이터 누적.
    그 데이터로 Activity Score 가중치를 확정한다.
+   파일럿 세그먼트는 **100명 이하**(2026-07-15) — Resend 무료 티어(일 100통) 한도 내, 본 발송 전 Pro($20/월) 전환.
 
 5. **Activity Score = 행동별 가중합.** 열람 < 클릭 < 전달 순으로 가중치.
    열람(open)은 Apple Mail/Gmail 프록시 때문에 신뢰도 낮음 → 보조 신호로만.
@@ -112,6 +113,8 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
    (실뉴스 80건 4모델 비교 — 일치율 1위·$0.0077/80건·16s, 월 비용 < $1.5 추정).
    haiku-4.5는 스팟체크 보조, gpt-5-mini(지연)·flash-lite("해당없음" 미사용) 제외.
    근거: `docs/research/llm-classification-dryrun.md`.
+   **분류 시점 = 수집 시 분류·저장**(2026-07-15) — 발송 직전 실시간 분류 금지, 분류 결과는 뉴스 캐시에 포함.
+   ⚠️ 노션 archive 페이지에 OpenRouter 키 평문 노출 발견(2026-07-15) — **로테이션 필요**(미완).
 
 8. **발신 도메인은 발송 전용 서브도메인** — 메인 도메인 평판 보호.
    ✅ **완료(2026-07-12)**: `foodtech-center.org` 신규 구입(Cloudflare, 희정 계정 — 민겸 접근 가능),
@@ -135,6 +138,10 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
     ⚠️ 파생 이슈: 디저트 코너(행사 CTA) 포함 호는 정보통신망법상 "(광고)" 표기 필요 가능 — 법무 확인,
     Outlook Safe Links 봇 클릭은 T-003 추적 정확도 전체에 영향 — 웹훅 설계 때 방어 포함.
 
+12. **배포 PaaS = Railway 선정(2026-07-15).** 월 $5 Hobby, 슬립 없음(웹훅 수신·크론 호출 필수 조건)이 기준.
+    계정은 랩실 소유(희정 생성 대기, OpenRouter 패턴). 비용 전망: 파일럿까지 월 $5 → 본 발송 후
+    월 ~$25(Resend Pro $20 포함) — 상세는 노션 cost 페이지. 트래킹 노션은 새 워크스페이스 "FoodTech-Agent"로 이전됨.
+
 ---
 
 ## 개발 워크플로 — 티켓 기반 (docs/tickets/)
@@ -151,6 +158,9 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 
 ## 추천 다음 작업 (우선순위 순)
 
+- **[보안 P0] OpenRouter 키 로테이션** — 노션 archive에 평문 노출. 신규 키 발급(한도 $25 재설정) + `.env` 교체 + 노션에서 삭제.
+- **[보안 P0] GitHub 레포 private 전환** — 회원 PII 임포트 전 필수, 배포 선행.
+
 1. ~~T-001 뉴스 수집 안정화~~ ✅ 2026-07-13 완료 — 네이버(국내 1차)+Brave(해외 1차) → 결과 기반 RSS 폴백,
    백오프 재시도, `POST /jobs/news-refresh` + `GET /health/news`(발송 전 헬스체크). 캐시는 `data/news_cache.json`.
    ⚠️ 후속: 24h 수집 크론 워크플로 추가 필요(발송 티켓과 함께), 학술(OpenAlex) 수집은 별도 티켓.
@@ -158,7 +168,8 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
    설계 시 함께 결정: Google News 링크 디코딩, Safe Links 봇 클릭 방어, 와우 포인트(W1~W4) 이벤트 연계.
 3. ~~Supabase 프로젝트 연결~~ ✅ 2026-07-12 완료 — T-002 스키마 5테이블 적용됨(리비전 59dda42e7213).
    접속 문자열은 `.env`의 `SUPABASE_URL`(비밀번호 포함 — 커밋 금지, 접두사 `postgresql+psycopg://` 필요).
-4. 앱 배포(PaaS 선정) + `admin.foodtech-center.org` CNAME 연결.
+4. 앱 배포 — **Railway** (희정 계정 대기, 결정 12). 선행: Dockerfile + JOBS_TOKEN 교체 + T-005 티켓.
+   배포 후 `admin.foodtech-center.org` CNAME + 24h 수집 크론 연결.
 5. Activity Score 산출 함수(가중치는 파라미터로) + Active/Dormant 분류 잡(job).
 
 ---
@@ -171,7 +182,7 @@ uv run alembic upgrade head            # 스키마 적용
 uv run uvicorn app.main:app --reload   # 서버 → http://localhost:8000 (/docs = API 문서)
 uv run pytest -q                       # 테스트 (foodtech_test DB 자동 생성)
 uv run python scripts/seed.py          # 개발 시드 데이터
-uv run ruff check . && uv run pyright  # 린트 + 타입체크
+bash scripts/check.sh                  # 린트 + 타입체크 + 테스트 일괄 (CI와 동일 단계)
 ```
 
 프로토타입 구동이 필요하면 `archive/foodtech-hub-deploy/`에서 `pip install -r requirements.txt && python app.py`.
