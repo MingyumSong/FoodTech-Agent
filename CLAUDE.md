@@ -114,7 +114,7 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
    haiku-4.5는 스팟체크 보조, gpt-5-mini(지연)·flash-lite("해당없음" 미사용) 제외.
    근거: `docs/research/llm-classification-dryrun.md`.
    **분류 시점 = 수집 시 분류·저장**(2026-07-15) — 발송 직전 실시간 분류 금지, 분류 결과는 뉴스 캐시에 포함.
-   ⚠️ 노션 archive 페이지에 OpenRouter 키 평문 노출 발견(2026-07-15) — **로테이션 필요**(미완).
+   노션 archive에 키 평문 있음 — 워크스페이스가 민겸·희정 2인 전용이라 **로테이션 불필요 판단**(2026-07-15, 민겸).
 
 8. **발신 도메인은 발송 전용 서브도메인** — 메인 도메인 평판 보호.
    ✅ **완료(2026-07-12)**: `foodtech-center.org` 신규 구입(Cloudflare, 희정 계정 — 민겸 접근 가능),
@@ -158,8 +158,8 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 
 ## 추천 다음 작업 (우선순위 순)
 
-- **[보안 P0] OpenRouter 키 로테이션** — 노션 archive에 평문 노출. 신규 키 발급(한도 $25 재설정) + `.env` 교체 + 노션에서 삭제.
 - **[보안 P0] GitHub 레포 private 전환** — 회원 PII 임포트 전 필수, 배포 선행.
+  (OpenRouter 키 로테이션은 취소 — 노션이 2인 전용 워크스페이스라 노출 아님, 결정 7 참고.)
 
 1. ~~T-001 뉴스 수집 안정화~~ ✅ 2026-07-13 완료 — 네이버(국내 1차)+Brave(해외 1차) → 결과 기반 RSS 폴백,
    백오프 재시도, `POST /jobs/news-refresh` + `GET /health/news`(발송 전 헬스체크). 캐시는 `data/news_cache.json`.
