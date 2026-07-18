@@ -13,3 +13,4 @@ docs/.obsidian/
 
 # 회원 명단 등 PII 원본 데이터 — 커밋 금지
 data/
+.obsidian/
