@@ -18,7 +18,8 @@ railway variables --service app --skip-deploys \
   --set "NAVER_CLIENT_ID=$NAVER_CLIENT_ID" \
   --set "NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET" \
   --set "BRAVE_SEARCH_API_KEY=$BRAVE_SEARCH_API_KEY" \
+  --set "RESEND_WEBHOOK_SECRET=$RESEND_WEBHOOK_SECRET" \
   > /dev/null
 
-echo "✅ Railway(app) 환경변수 9개 설정 완료 (값은 출력하지 않음)"
+echo "✅ Railway(app) 환경변수 10개 설정 완료 (값은 출력하지 않음)"
 railway variables --service app --kv | cut -d= -f1
