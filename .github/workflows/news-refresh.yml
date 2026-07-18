@@ -1,0 +1,45 @@
+name: News refresh
+
+# 매일 07:00 KST에 배포 앱의 뉴스 수집을 트리거하고 결과를 검증한다 (T-005 AC11).
+# 수집 실패(캐시 미갱신·건수 미달)면 잡이 실패해 Actions 알림 = 발송 전 이상 신호.
+# 앱 URL은 시크릿 APP_URL (Railway 배포 주소), 인증은 시크릿 JOBS_TOKEN.
+
+on:
+  schedule:
+    - cron: "0 22 * * *" # 22:00 UTC = 07:00 KST
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger news refresh
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          JOBS_TOKEN: ${{ secrets.JOBS_TOKEN }}
+        run: |
+          http_code=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "$APP_URL/jobs/news-refresh" \
+            -H "Authorization: Bearer $JOBS_TOKEN")
+          echo "trigger HTTP $http_code"
+          if [ "$http_code" -ge 300 ]; then
+            cat /tmp/resp.json
+            exit 1
+          fi
+
+      - name: Verify news cache health
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          # 수집은 백그라운드라 완료까지 대기 후 헬스체크 (최대 3분)
+          for i in $(seq 1 18); do
+            sleep 10
+            body=$(curl -s "$APP_URL/health/news")
+            echo "$body"
+            if echo "$body" | jq -e '.ok == true and .age_hours < 1' > /dev/null; then
+              echo "✅ news cache refreshed"
+              exit 0
+            fi
+          done
+          echo "❌ news cache not refreshed within 3 minutes"
+          exit 1

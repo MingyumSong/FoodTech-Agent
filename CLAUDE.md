@@ -168,9 +168,9 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
    설계 시 함께 결정: Google News 링크 디코딩, Safe Links 봇 클릭 방어, 와우 포인트(W1~W4) 이벤트 연계.
 3. ~~Supabase 프로젝트 연결~~ ✅ 2026-07-12 완료 — T-002 스키마 5테이블 적용됨(리비전 59dda42e7213).
    접속 문자열은 `.env`의 `SUPABASE_URL`(비밀번호 포함 — 커밋 금지, 접두사 `postgresql+psycopg://` 필요).
-4. 앱 배포 — **Railway** (희정 계정 생성됨, **인증 대기**, 결정 12). ✅ 선행 준비 완료(2026-07-18,
-   T-005 A단계): private 전환·Dockerfile PORT 대응·railway.json(헬스체크+preDeploy 마이그레이션)·
-   .dockerignore·신규 JOBS_TOKEN. 인증 후 T-005 B단계: 프로젝트 생성→환경변수→CNAME→24h 수집 크론.
+4. ~~앱 배포~~ ✅ 2026-07-18 **Railway 배포 완료**(T-005) — `https://app-production-945c.up.railway.app`,
+   프로젝트 foodtech-hub(교수님 계정 snupfm@gmail.com)/서비스 app. 배포는 `railway up`, 환경변수 동기화는
+   `scripts/railway-env-sync.sh`. `/api/members`는 ADMIN_TOKEN 잠금(매직링크 전까지). 잔여: CNAME(AC10).
 5. Activity Score 산출 함수(가중치는 파라미터로) + Active/Dormant 분류 잡(job).
 
 ---

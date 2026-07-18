@@ -1,6 +1,7 @@
 # T-005: Railway 배포 (선행 준비 + 배포 본체)
 
-Status: DOING (2026-07-18 — **A 선행 준비 완료(AC1~6)**. Railway 계정 인증 완료 후 B 배포 본체 진행)
+Status: DOING (2026-07-18 — A 완료(AC1~6) + **B 배포 완료(AC7~9)**. 잔여: AC10 CNAME, AC11 크론 실행 확인.
+배포 URL: `https://app-production-945c.up.railway.app`, 프로젝트 foodtech-hub / 서비스 app, 배포는 `railway up`)
 
 ## Problem
 
@@ -52,11 +53,13 @@ Status: DOING (2026-07-18 — **A 선행 준비 완료(AC1~6)**. Railway 계정 
 - [x] AC6: `bash scripts/check.sh` 통과 (기존 테스트 회귀 없음) ✅ 32 passed
 
 **B. 배포 본체 (인증 후)**
-- [ ] AC7: 배포 URL에서 `/health` 200 (Supabase 연결 확인)
-- [ ] AC8: preDeploy로 Supabase 스키마가 head 리비전과 일치
-- [ ] AC9: `POST /jobs/news-refresh` (신규 JOBS_TOKEN) → `/health/news` ok
+- [x] AC7: 배포 URL에서 `/health` 200 (Supabase 연결 확인)
+      ✅ 2026-07-18 `https://app-production-945c.up.railway.app/health` → `{"status":"ok","db":"ok"}`
+- [x] AC8: preDeploy로 Supabase 스키마가 head 리비전과 일치 ✅ 배포 로그 alembic 통과 + db ok
+- [x] AC9: `POST /jobs/news-refresh` (신규 JOBS_TOKEN) → `/health/news` ok
+      ✅ 80건 수집(naver+brave). 무토큰/틀린토큰 401 확인. `/api/members`도 401(ADMIN_TOKEN 잠금).
 - [ ] AC10: admin.foodtech-center.org에서 앱 응답 (Cloudflare CNAME + Railway 커스텀 도메인)
-- [ ] AC11: news-refresh.yml 크론이 배포 URL 호출 성공
+- [ ] AC11: news-refresh.yml 크론이 배포 URL 호출 성공 (시크릿 APP_URL·JOBS_TOKEN 등록됨)
 
 ## Verification
 
