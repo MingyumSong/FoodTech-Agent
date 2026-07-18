@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # LLM (결정 7: OpenRouter 게이트웨이)
     openrouter_api_key: str = ""
+    news_classify_model: str = "google/gemini-2.5-flash"  # T-004 드라이런으로 확정
 
     # 추적 (T-003) — Resend 웹훅 서명 검증 시크릿 (대시보드 웹훅 생성 시 발급, whsec_ 접두사)
     resend_webhook_secret: str = ""

@@ -31,6 +31,12 @@ def make_client(handler) -> httpx.Client:
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
+@pytest.fixture(autouse=True)
+def _no_llm_classification(monkeypatch):
+    # refresh_news_cache가 T-006 분류를 타지 않게 — 분류 자체는 test_news_classify.py에서 검증
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
+
+
 @pytest.fixture
 def cache_path(tmp_path, monkeypatch):
     path = tmp_path / "news_cache.json"

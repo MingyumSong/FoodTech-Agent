@@ -284,6 +284,14 @@ def refresh_news_cache(client: httpx.Client | None = None) -> dict[str, Any]:
         f"news cache refreshed: {len(items)} items "
         f"(domestic={domestic_source}, overseas={overseas_source})"
     )
+    # 분류·DB 저장 (T-006) — 실패해도 수집·캐시·헬스체크는 무관 (실패분은 다음 크론에서 재분류)
+    try:
+        from app.services.news_classify import classify_and_store
+
+        cache["classify"] = classify_and_store(items, client=client)
+    except Exception as exc:
+        logger.error(f"news classification failed (collection unaffected): {exc}")
+        cache["classify"] = {"error": str(exc)}
     return cache
 
 
