@@ -158,7 +158,7 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 
 ## 추천 다음 작업 (우선순위 순)
 
-- **[보안 P0] GitHub 레포 private 전환** — 회원 PII 임포트 전 필수, 배포 선행.
+- ~~[보안 P0] GitHub 레포 private 전환~~ ✅ 2026-07-18 완료.
   (OpenRouter 키 로테이션은 취소 — 노션이 2인 전용 워크스페이스라 노출 아님, 결정 7 참고.)
 
 1. ~~T-001 뉴스 수집 안정화~~ ✅ 2026-07-13 완료 — 네이버(국내 1차)+Brave(해외 1차) → 결과 기반 RSS 폴백,
@@ -168,8 +168,9 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
    설계 시 함께 결정: Google News 링크 디코딩, Safe Links 봇 클릭 방어, 와우 포인트(W1~W4) 이벤트 연계.
 3. ~~Supabase 프로젝트 연결~~ ✅ 2026-07-12 완료 — T-002 스키마 5테이블 적용됨(리비전 59dda42e7213).
    접속 문자열은 `.env`의 `SUPABASE_URL`(비밀번호 포함 — 커밋 금지, 접두사 `postgresql+psycopg://` 필요).
-4. 앱 배포 — **Railway** (희정 계정 대기, 결정 12). 선행: Dockerfile + JOBS_TOKEN 교체 + T-005 티켓.
-   배포 후 `admin.foodtech-center.org` CNAME + 24h 수집 크론 연결.
+4. 앱 배포 — **Railway** (희정 계정 생성됨, **인증 대기**, 결정 12). ✅ 선행 준비 완료(2026-07-18,
+   T-005 A단계): private 전환·Dockerfile PORT 대응·railway.json(헬스체크+preDeploy 마이그레이션)·
+   .dockerignore·신규 JOBS_TOKEN. 인증 후 T-005 B단계: 프로젝트 생성→환경변수→CNAME→24h 수집 크론.
 5. Activity Score 산출 함수(가중치는 파라미터로) + Active/Dormant 분류 잡(job).
 
 ---

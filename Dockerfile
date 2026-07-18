@@ -13,4 +13,5 @@ COPY scripts ./scripts
 RUN uv sync --frozen --no-dev
 
 EXPOSE 8000
-CMD ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Railway가 PORT를 주입하므로 sh -c로 변수 확장 (로컬 기본값 8000), exec로 SIGTERM 직접 수신
+CMD ["/bin/sh", "-c", "exec uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

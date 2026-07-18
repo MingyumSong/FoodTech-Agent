@@ -1,0 +1,19 @@
+# 빌드에 필요한 것만 컨텍스트에 포함 (Dockerfile COPY 대상: pyproject.toml, uv.lock, app/, alembic.ini, migrations/, scripts/)
+.git
+.venv
+.env
+.env.*
+archive/
+data/
+docs/
+tests/
+.github/
+.claude/
+.omc/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+docker-compose.yml
+CLAUDE.md
+README.md
