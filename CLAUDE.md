@@ -173,7 +173,9 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
 4. ~~앱 배포~~ ✅ 2026-07-18 **Railway 배포 완료**(T-005) — `https://app-production-945c.up.railway.app`,
    프로젝트 foodtech-hub(교수님 계정 snupfm@gmail.com)/서비스 app. 배포는 `railway up`, 환경변수 동기화는
    `scripts/railway-env-sync.sh`. `/api/members`는 ADMIN_TOKEN 잠금(매직링크 전까지). 잔여: CNAME(AC10).
-5. Activity Score 산출 함수(가중치는 파라미터로) + Active/Dormant 분류 잡(job).
+5. ~~회원 임포터(T-007)~~ ✅ 2026-07-18 — CSV/XLSX 업서트(멱등)·dry_run·`POST /api/members/import`+CLI.
+   실명단 임포트는 파일럿 세그먼트 선정 때. 구글시트 API 직접 연동은 후속 티켓.
+6. **발송 최소형(파일럿)** — 푸디픽 조립 + Resend 발송 + send_logs. 이후 Activity Score 함수 + 분류 잡.
 
 ---
 

@@ -1,0 +1,195 @@
+{
+  "main": {
+    "id": "d15d4c2a49fb7580",
+    "type": "split",
+    "children": [
+      {
+        "id": "76d2b485e9d30982",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6d44385dedb3ffbd",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "docs/research/classification-review-2026-07-18.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "classification-review-2026-07-18"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "54480308658d4bea",
+    "type": "split",
+    "children": [
+      {
+        "id": "50d6992144cea3ff",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "80a8007db6a1f6e9",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "파일 탐색기"
+            }
+          },
+          {
+            "id": "22216214531b2a71",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "검색"
+            }
+          },
+          {
+            "id": "cd6ef319dd8a21c8",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "북마크"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "312027ebf9668097",
+    "type": "split",
+    "children": [
+      {
+        "id": "27b71bf1f098b3e2",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "2bc775485b36c68b",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "docs/research/classification-review-2026-07-18.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "classification-review-2026-07-18 의 백링크"
+            }
+          },
+          {
+            "id": "b1cbfaee6101a996",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "docs/research/classification-review-2026-07-18.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "classification-review-2026-07-18 의 나가는 링크"
+            }
+          },
+          {
+            "id": "5af367d96a57ddde",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "태그"
+            }
+          },
+          {
+            "id": "e5cdc65ea78be87d",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "모든 속성"
+            }
+          },
+          {
+            "id": "7ffdc89237507ba4",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "docs/research/classification-review-2026-07-18.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "classification-review-2026-07-18 의 개요"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:빠른 전환기 열기": false,
+      "graph:그래프 뷰 열기": false,
+      "canvas:새 캔버스 만들기": false,
+      "daily-notes:오늘의 일일 노트 열기": false,
+      "templates:템플릿 삽입": false,
+      "command-palette:명령어 팔레트 열기": false,
+      "bases:새 베이스 생성하기": false
+    }
+  },
+  "active": "6d44385dedb3ffbd",
+  "lastOpenFiles": [
+    "tests/__pycache__/test_member_import.cpython-313-pytest-9.1.1.pyc",
+    "app/services/__pycache__/member_import.cpython-313.pyc",
+    "tests/test_member_import.py",
+    "scripts/import_members.py",
+    "app/services/member_import.py",
+    "docs/tickets/T-007_member-importer.md"
+  ]
+}
