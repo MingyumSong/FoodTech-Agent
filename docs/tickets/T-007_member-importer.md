@@ -1,8 +1,10 @@
 # T-007: 회원 임포터 — 구글시트 CSV/XLSX 업서트
 
-Status: DONE (2026-07-18 — AC 8/8 충족, 테스트 57개 통과. 라이브: CLI dry-run→실행(created 2)→
-재실행(created 0, updated 2, 중복 연결 0) 멱등 확인. 산출물: app/services/member_import.py,
-POST /api/members/import, scripts/import_members.py. 실명단 임포트는 파일럿 세그먼트 선정 때 수행.)
+Status: DONE (2026-07-18 — AC 8/8 + **실명단 운영 임포트 완료**: Supabase members 3,413명
+(이메일 보유 3,203명=94%), program 연결 3,413건, 오류 0. 파일: `data/(260710)_회원_전체_명단.xlsx`
+의 "월드푸드테크협의회" 시트(전체 워크북은 시트 19장 잡동사니 — 원본 시트 확정은 희정 논의).
+성능: 행당 DB 조회 → 메모리 인덱스 매칭으로 변경(원격 10분 타임아웃 → 2.8초).
+동명이인 보호 추가(이름·소속 같아도 이메일 다르면 별도 인물 — 실측 54명 구제). 테스트 59개 통과.)
 
 ## Problem
 

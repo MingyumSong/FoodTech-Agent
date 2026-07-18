@@ -158,40 +158,38 @@ def read_file(
 # ---------------------------------------------------------------- upsert
 
 
-def _find_existing(session: Session, data: dict[str, Any]) -> Member | None:
-    email = data.get("email")
-    if email:
-        found = session.exec(select(Member).where(Member.email == email)).first()
-        if found:
-            return found
-    candidate = session.exec(
-        select(Member).where(
-            Member.name == data["name"], Member.organization == data.get("organization")
-        )
-    ).first()
-    if candidate is None:
-        return None
-    # 동명이인 보호: 양쪽 다 이메일이 있는데 서로 다르면 같은 이름·소속이라도 다른 사람으로 취급.
-    # (이메일이 한쪽만 있으면 같은 사람의 결측 보완으로 보고 병합)
-    if email and candidate.email and candidate.email != email:
-        return None
-    return candidate
+class _MemberIndex:
+    """행마다 DB 왕복을 피하기 위한 메모리 매칭 인덱스.
 
+    원격 DB(Supabase) 대상 4,000행 임포트가 행당 SELECT 2회로는 10분+ 걸려서,
+    시작 시 전체를 한 번 로드하고 이후는 메모리에서 매칭한다.
+    """
 
-def _link_program(session: Session, member: Member, program: str, cohort: str | None) -> bool:
-    assert member.id is not None
-    existing = session.exec(
-        select(MemberProgram).where(
-            MemberProgram.member_id == member.id, MemberProgram.program == program
-        )
-    ).first()
-    if existing:
-        if cohort and not existing.cohort:
-            existing.cohort = cohort
-            session.add(existing)
-        return False
-    session.add(MemberProgram(member_id=member.id, program=program, cohort=cohort))
-    return True
+    def __init__(self, session: Session) -> None:
+        self.by_email: dict[str, Member] = {}
+        self.by_name_org: dict[tuple[str, str | None], Member] = {}
+        for m in session.exec(select(Member)).all():
+            self.register(m)
+
+    def register(self, member: Member) -> None:
+        if member.email and member.email not in self.by_email:
+            self.by_email[member.email] = member
+        key = (member.name, member.organization)
+        if key not in self.by_name_org:
+            self.by_name_org[key] = member
+
+    def find(self, data: dict[str, Any]) -> Member | None:
+        email = data.get("email")
+        if email and email in self.by_email:
+            return self.by_email[email]
+        candidate = self.by_name_org.get((data["name"], data.get("organization")))
+        if candidate is None:
+            return None
+        # 동명이인 보호: 양쪽 다 이메일이 있는데 서로 다르면 같은 이름·소속이라도 다른 사람으로
+        # 취급. (이메일이 한쪽만 있으면 같은 사람의 결측 보완으로 보고 병합)
+        if email and candidate.email and candidate.email != email:
+            return None
+        return candidate
 
 
 def import_members(
@@ -215,6 +213,8 @@ def import_members(
         "errors": [],
         "dry_run": dry_run,
     }
+    index = _MemberIndex(session)
+    pending_links: list[tuple[Member, str | None]] = []
     for i, row in enumerate(rows, start=file_info["header_row"] + 1):
         try:
             data = parse_row(row)
@@ -222,7 +222,7 @@ def import_members(
                 report["skipped"] += 1
                 continue
             cohort = data.pop("cohort")
-            member = _find_existing(session, data)
+            member = index.find(data)
             if member is None:
                 member = Member(**data, unsubscribe_token=secrets.token_urlsafe(24))
                 session.add(member)
@@ -236,11 +236,31 @@ def import_members(
                     member.unsubscribe_token = secrets.token_urlsafe(24)
                 session.add(member)
                 report["updated"] += 1
-            session.flush()
-            if program and _link_program(session, member, program, cohort):
-                report["linked_program"] += 1
+            index.register(member)
+            if program:
+                pending_links.append((member, cohort))
         except Exception as exc:  # 행 단위 격리 — 한 행 오류가 전체를 막지 않는다
             report["errors"].append({"row": i, "error": str(exc)})
+
+    if program and pending_links:
+        session.flush()  # 신규 회원 id 일괄 확보
+        existing_links = {
+            (link.member_id, link.program): link
+            for link in session.exec(
+                select(MemberProgram).where(MemberProgram.program == program)
+            ).all()
+        }
+        for member, cohort in pending_links:
+            assert member.id is not None
+            link = existing_links.get((member.id, program))
+            if link is None:
+                link = MemberProgram(member_id=member.id, program=program, cohort=cohort)
+                session.add(link)
+                existing_links[(member.id, program)] = link
+                report["linked_program"] += 1
+            elif cohort and not link.cohort:
+                link.cohort = cohort
+                session.add(link)
     if dry_run:
         session.rollback()
     else:
