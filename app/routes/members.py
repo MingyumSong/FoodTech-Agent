@@ -2,10 +2,16 @@ from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 
 from app.db import get_session
+from app.lib.auth import require_admin_token
 from app.models.member import MemberCreate, MemberRead
 from app.services import members as members_service
 
-router = APIRouter(prefix="/api/members", tags=["members"])
+# 회원 PII 라우터 — 전 엔드포인트 관리자 토큰 필수 (공개 URL 노출 금지)
+router = APIRouter(
+    prefix="/api/members",
+    tags=["members"],
+    dependencies=[Depends(require_admin_token)],
+)
 
 
 @router.get("", response_model=list[MemberRead])

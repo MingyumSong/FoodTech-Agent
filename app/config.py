@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://foodtech:foodtech@localhost:5432/foodtech"
     jobs_token: str = ""
+    admin_token: str = ""  # 회원 API 잠금 (매직링크 로그인 전까지)
     app_env: str = "local"
 
     # 뉴스 수집 (T-001)

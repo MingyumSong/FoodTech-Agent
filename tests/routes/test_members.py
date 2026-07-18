@@ -1,14 +1,35 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+from app.config import settings
 from app.models.member import Member
 from app.models.member_program import MemberProgram
+
+AUTH = {"Authorization": "Bearer test-admin-token"}
+
+
+@pytest.fixture(autouse=True)
+def _admin_token(monkeypatch):
+    monkeypatch.setattr(settings, "admin_token", "test-admin-token")
+
+
+def test_members_requires_token(client: TestClient):
+    assert client.get("/api/members").status_code == 401
+    assert client.get("/api/members", headers={"Authorization": "Bearer wrong"}).status_code == 401
+    assert client.post("/api/members", json={"name": "무인증"}).status_code == 401
+
+
+def test_members_unconfigured_token_returns_503(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "admin_token", "")
+    assert client.get("/api/members", headers=AUTH).status_code == 503
 
 
 def test_create_member(client: TestClient, session: Session):
     resp = client.post(
         "/api/members",
         json={"name": "김민준", "email": "minjun@example.com", "program": "협의회"},
+        headers=AUTH,
     )
     assert resp.status_code == 201
     body = resp.json()
@@ -23,8 +44,8 @@ def test_create_member(client: TestClient, session: Session):
 
 def test_create_member_duplicate_email_conflict(client: TestClient):
     payload = {"name": "이서연", "email": "seoyeon@example.com"}
-    assert client.post("/api/members", json=payload).status_code == 201
-    resp = client.post("/api/members", json=payload)
+    assert client.post("/api/members", json=payload, headers=AUTH).status_code == 201
+    resp = client.post("/api/members", json=payload, headers=AUTH)
     assert resp.status_code == 409
     assert resp.json()["error"]["code"] == "conflict"
 
@@ -40,7 +61,7 @@ def test_list_members_filters_by_program(client: TestClient, session: Session):
     session.add(MemberProgram(member_id=m2.id, program="협의회"))
     session.commit()
 
-    resp = client.get("/api/members", params={"program": "계약학과"})
+    resp = client.get("/api/members", params={"program": "계약학과"}, headers=AUTH)
     assert resp.status_code == 200
     names = [m["name"] for m in resp.json()]
     assert "박지훈" in names
@@ -48,6 +69,6 @@ def test_list_members_filters_by_program(client: TestClient, session: Session):
 
 
 def test_get_member_not_found(client: TestClient):
-    resp = client.get("/api/members/999999")
+    resp = client.get("/api/members/999999", headers=AUTH)
     assert resp.status_code == 404
     assert resp.json()["error"]["code"] == "not_found"

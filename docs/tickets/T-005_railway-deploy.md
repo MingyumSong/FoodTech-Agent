@@ -31,8 +31,10 @@ Status: DOING (2026-07-18 — **A 선행 준비 완료(AC1~6)**. Railway 계정 
 - JOBS_TOKEN 신규 생성 (`.env` 반영은 사용자가 수동 — 훅이 .env 편집 차단)
 
 **B. 배포 본체 (인증 후)**
-- Railway 프로젝트 생성(GitHub 연동) + 환경변수 세팅
-  (DATABASE_URL=Supabase, JOBS_TOKEN, RESEND_API_KEY, NAVER_*, BRAVE_*, OPENROUTER_API_KEY, APP_ENV=prod)
+- Railway 프로젝트 생성(GitHub 연동) + 환경변수 세팅 — `scripts/railway-env-sync.sh` 사용
+  (DATABASE_URL=Supabase, JOBS_TOKEN, ADMIN_TOKEN, RESEND_API_KEY, NAVER_*, BRAVE_*, OPENROUTER_API_KEY, APP_ENV=prod)
+- `/api/members` 관리자 토큰 잠금(ADMIN_TOKEN) — 배포 전 완료(2026-07-18). PII 임포트의 선행 조건이었음.
+  매직링크 로그인(관리자 페이지 티켓)이 들어오면 이 토큰 방식은 대체 또는 병행 결정.
 - `admin.foodtech-center.org` CNAME 연결(Cloudflare)
 - 24h 뉴스 수집 크론 워크플로(`news-refresh.yml`) — 배포 URL 필요해서 이 단계
 - Scope 밖: T-003 웹훅 구현, Activity Score, 발송 크론
