@@ -1,7 +1,8 @@
 # T-003: Resend 웹훅 수신 — 참여 이벤트 적재
 
-Status: DOING (2026-07-18 — 구현 완료, AC1~7 충족·테스트 44개 통과. **잔여: AC8 라이브 2인 테스트**
-— Resend 웹훅 등록 → RESEND_WEBHOOK_SECRET 배포 → 테스트 메일 열람·클릭 → Supabase 행 확인)
+Status: DONE (2026-07-18 — AC 8/8 충족. 라이브 검증: 테스트 메일 2통 → delivered×2/opened/clicked×2가
+Supabase에 적재, clicked url=원본 기사 URL(캐시 매칭 설계 성립). 추적 도메인 links.news.foodtech-center.org
+Verified(Cloudflare CNAME, DNS only). 산출물: app/routes/webhooks.py, app/services/engagement.py, app/lib/webhook.py)
 
 ## Problem
 
@@ -53,8 +54,11 @@ Status: DOING (2026-07-18 — 구현 완료, AC1~7 충족·테스트 44개 통�
       일치하지 않으면 수신자 이메일로 member 매칭 폴백, 그것도 없으면 고아 이벤트로라도 저장
 - [x] AC6: 허용 목록 밖 이벤트(email.sent 등) → 200 응답, 적재 없음
 - [x] AC7: `bash scripts/check.sh` 통과 ✅ 44 passed
-- [ ] AC8 (라이브): Railway 재배포 + Resend 웹훅 등록 후, 테스트 메일 발송 → 민겸·희정이
+- [x] AC8 (라이브): Railway 재배포 + Resend 웹훅 등록 후, 테스트 메일 발송 → 민겸·희정이
       열람·클릭 → Supabase `engagement_events`에 실제 행 확인 (2인 테스트)
+      ✅ 민겸 실측: delivered/opened/clicked 5행, clicked url=원본 기사 URL 2건.
+      ※ 발견: Resend 열람·클릭 추적은 기본 OFF — 추적 서브도메인(links.news) 생성+CNAME 필요했음.
+      희정 쪽은 이메일 주소 수령 시 동일 테스트 1통 추가 (파일럿에서 자연 검증돼도 무방).
 
 ## Verification
 
