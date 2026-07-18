@@ -21,5 +21,6 @@ railway variables --service app --skip-deploys \
   --set "RESEND_WEBHOOK_SECRET=$RESEND_WEBHOOK_SECRET" \
   > /dev/null
 
-echo "✅ Railway(app) 환경변수 10개 설정 완료 (값은 출력하지 않음)"
+count=$(grep -c '^  --set "' "$0")
+echo "✅ Railway(app) 환경변수 ${count}개 설정 완료 (값은 출력하지 않음)"
 railway variables --service app --kv | cut -d= -f1

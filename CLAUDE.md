@@ -14,7 +14,8 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 **동기:** 집단이 커지는데 회원 관리가 양식 없이 방치돼 오래된 회원 참여율이 저조. 정기 소통창구를
 만들고, **참여율 높은 회원에게 행사·베네핏을 부여**하고 싶음. → "추적 → 점수 → 분류"가 그 선별 근거다.
 
-**프로젝트의 핵심 가치는 "추적 → 점수 → 분류"다.** 이게 아직 미구현이며 최우선이다.
+**프로젝트의 핵심 가치는 "추적 → 점수 → 분류"다.** 추적은 완료(T-003, engagement_events 라이브 적재 중),
+**점수(Activity Score)·분류(Active/Dormant)가 남은 최우선**이다.
 회원 3,000명은 여러 프로그램에 걸쳐 있으므로 `program` 세그먼트로 관리하고, 발송은 전원이 아닌 세그먼트 단위.
 
 ---
@@ -27,48 +28,20 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 - **스케줄 작업**: `/jobs/*` 엔드포인트(Bearer `JOBS_TOKEN`, 멱등) ← GitHub Actions 크론이 호출.
 - **발송 카나리**: `daily-send-check.yml` 크론이 매일 09:00 KST Resend 검증 메일 1통 발송
   (GitHub Secrets: `RESEND_API_KEY`, `CHECK_EMAIL`). 실패 시 Actions 실패 알림 = 발송 경로 이상 신호.
+- **수집 크론**: `news-refresh.yml` — 매일 07:00 KST 배포 앱의 `/jobs/news-refresh` 호출 후
+  `/health/news`로 갱신 검증 (Secrets: `APP_URL`, `JOBS_TOKEN`).
 - **테스트/CI**: pytest + 실제 Postgres(트랜잭션 롤백 픽스처). CI = GitHub Actions(ruff+pyright+pytest).
 - **하네스**: `.claude/rules/` 6개 + 스킬(/migrate, /seed-data, /api-test) + 훅(ruff 자동포맷, .env·uv.lock 수정차단).
   아키텍처 결정 기록은 `scaffold-spec.md`.
 
 ## 참고 프로토타입 (`archive/foodtech-hub-deploy/` — 수정 금지)
 
-로직 참고·결함 반면교사 용도로만 쓴다. 가져올 로직: 뉴스 수집, CSV 임포트, 매직링크, 캠페인 발송.
-
-- **스택**: FastAPI + SQLModel(ORM). DB는 로컬 SQLite / 운영 PostgreSQL 자동 전환. (신규에서는 SQLite 폐기)
-- **프론트**: 정적 단일 HTML (`static/index.html` 공개용, `static/admin.html` 관리자용). Chart.js CDN.
-- **이메일**: Resend (`email_client.py`). 키 없으면 DRY RUN 콘솔 출력.
-- **뉴스 수집**: `app.py`의 `refresh_news_cache()` — Brave Search API(주력) + Google News RSS(폴백). JSON 캐시, 24h 크론.
-
-### 이미 구현된 것
-- 회원 CSV/XLSX 임포트 (`import_members.py`, 한글 헤더 매핑 + 인코딩 자동감지)
-- 뉴스레터 캠페인 작성/발송, 수신거부 처리
-- 관리자 매직링크 로그인(15분) + 세션(30일)
-- 재무 대시보드(yfinance 시가총액/매출, DART 재무제표) — ※ 기획서엔 없던 부가 기능
-
-### ⚠️ 미구현 (여기가 핵심 작업)
-- **열람/클릭 추적 없음**. `send_logs.status`에 `opened` 값이 정의만 돼 있고 실제 기록 코드는 없다.
-- **회원별·뉴스별 조회 이벤트 테이블 없음**.
-- **Activity Score 산출 로직 없음**.
-- **Active/Dormant 자동 분류 없음**.
-
----
-
-## DB 테이블 (프로토타입 db.py — 신규 스키마 설계의 참고)
-
-| 테이블 | 역할 |
-|---|---|
-| `members` | 회원 명부 (아래 스키마) |
-| `newsletters` | 뉴스레터 캠페인 (제목, 본문, 상태, 대상필터, 수신자수) |
-| `send_logs` | 발송 로그 (member_id, email, status: queued/sent/failed/**opened**) |
-| `magic_links` | 관리자 매직링크 일회용 토큰 |
-| `admin_sessions` | 관리자 세션 |
-
-### members 주요 필드
-name(필수), email, phone, cohort(기수), category(기업/기관/대학/언론), subcategory,
-position, organization, location, division, business_area,
-membership_status, membership_type, benefit_pct, council_label,
-subscribed(수신동의 기본 true), unsubscribe_token, notes.
+로직 참고 전용(복사 금지, route→service→model로 재작성). 뉴스 수집·CSV 임포트는 T-001/T-006/T-007로
+재구현 완료라 참고 가치 소멸. **아직 가져올 로직**: ① 캠페인 발송·수신거부 (`email_client.py` —
+키 없으면 DRY RUN, `send_logs`/`newsletters` 흐름) — 발송 티켓(T-008)에서,
+② 관리자 매직링크 로그인 15분 + 세션 30일 (`magic_links`/`admin_sessions`) — 관리자 페이지 티켓에서.
+신규 스키마의 단일 진실은 Alembic 마이그레이션(Supabase 적용됨): members + member_programs +
+newsletters + send_logs + engagement_events + news_items.
 
 ---
 
@@ -86,15 +59,11 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
    세포배양식품 / 식물기반식품 / 간편식 / 식품프린팅 / 스마트제조 / 스마트유통 /
    커스터마이징 / 외식 푸드테크 / 업사이클링 / 친환경포장.
    - 추가 소스: 네이버 뉴스 API(국내 핵심), 언론사 RSS, 학술은 CrossRef/PubMed API.
-   - **안정성 수정 필수**: (a) Brave 한도초과/오류 시에도 RSS로 폴백되게 (현재는 키 부재 시에만 폴백),
-     (b) 요청 재시도 + 백오프, (c) 발송 전 뉴스 수집 상태 헬스체크·알림.
+   - ✅ 안정성(결과 기반 폴백·재시도·헬스체크)은 T-001로 구현 완료.
 
-3. **추적은 Resend 웹훅이 1차 수단.** (2026-07-11 노션 동기화 — 자체 리다이렉트 단독안 대체)
-   - Resend 웹훅(open / click / bounce)을 수신하는 엔드포인트 신설 → 이벤트 테이블에 적재.
-     click 페이로드에 클릭된 URL이 포함되므로 뉴스별 집계 가능.
-   - 자체 리다이렉트(`/r/{token}`)는 웹훅으로 부족할 때(예: 뉴스 아이템 단위 토큰 매핑)만 보조 검토.
-   - 열람(open)은 프록시 오탐 때문에 어차피 보조 신호.
-   - 회원별·뉴스별 이벤트 테이블 신설 (member_id, newsletter_id, news_item, event_type, ts).
+3. **추적은 Resend 웹훅이 1차 수단.** (2026-07-11) ✅ T-003 구현 완료 — `POST /webhooks/resend`(svix
+   서명 검증) → `engagement_events` 멱등 적재, clicked url=원본 기사 URL(캐시 매칭). 상세는 티켓.
+   열람(open)은 프록시 오탐 때문에 보조 신호. 추적 도메인 `links.news.foodtech-center.org` Verified.
 
 4. **발송은 4주차에 파일럿으로 조기 시작.** 완벽하지 않아도 시작해서 5·6·7주차 실데이터 누적.
    그 데이터로 Activity Score 가중치를 확정한다.
@@ -139,8 +108,9 @@ subscribed(수신동의 기본 true), unsubscribe_token, notes.
     Outlook Safe Links 봇 클릭은 T-003 추적 정확도 전체에 영향 — 웹훅 설계 때 방어 포함.
 
 12. **배포 PaaS = Railway 선정(2026-07-15).** 월 $5 Hobby, 슬립 없음(웹훅 수신·크론 호출 필수 조건)이 기준.
-    계정은 랩실 소유(희정 생성 대기, OpenRouter 패턴). 비용 전망: 파일럿까지 월 $5 → 본 발송 후
-    월 ~$25(Resend Pro $20 포함) — 상세는 노션 cost 페이지. 트래킹 노션은 새 워크스페이스 "FoodTech-Agent"로 이전됨.
+    ✅ 배포 완료(2026-07-18, T-005) — 프로젝트 foodtech-hub, **계정은 교수님(snupfm@gmail.com)**.
+    비용 전망: 파일럿까지 월 $5 → 본 발송 후 월 ~$25(Resend Pro $20 포함) — 상세는 노션 cost 페이지.
+    트래킹 노션은 새 워크스페이스 "FoodTech-Agent"로 이전됨.
 
 ---
 
