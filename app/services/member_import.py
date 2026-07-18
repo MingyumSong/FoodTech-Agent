@@ -127,11 +127,18 @@ def read_csv(content: bytes) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     return rows, {"format": "csv", "encoding": encoding, "header_row": header_row}
 
 
-def read_xlsx(content: bytes) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def read_xlsx(
+    content: bytes, sheet: str | None = None
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     from openpyxl import load_workbook
 
     wb = load_workbook(io.BytesIO(content), data_only=True, read_only=True)
-    ws = wb.active
+    if sheet is not None:
+        if sheet not in wb.sheetnames:
+            raise ValueError(f"시트 없음: {sheet} (있는 시트: {', '.join(wb.sheetnames[:10])})")
+        ws = wb[sheet]
+    else:
+        ws = wb.active
     assert ws is not None
     all_rows = [
         ["" if v is None else str(v).strip() for v in row] for row in ws.iter_rows(values_only=True)
@@ -140,9 +147,11 @@ def read_xlsx(content: bytes) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     return rows, {"format": "xlsx", "sheet": ws.title, "header_row": header_row}
 
 
-def read_file(content: bytes, filename: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def read_file(
+    content: bytes, filename: str, sheet: str | None = None
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if filename.lower().endswith((".xlsx", ".xlsm")):
-        return read_xlsx(content)
+        return read_xlsx(content, sheet)
     return read_csv(content)
 
 
@@ -150,15 +159,23 @@ def read_file(content: bytes, filename: str) -> tuple[list[dict[str, Any]], dict
 
 
 def _find_existing(session: Session, data: dict[str, Any]) -> Member | None:
-    if data.get("email"):
-        found = session.exec(select(Member).where(Member.email == data["email"])).first()
+    email = data.get("email")
+    if email:
+        found = session.exec(select(Member).where(Member.email == email)).first()
         if found:
             return found
-    return session.exec(
+    candidate = session.exec(
         select(Member).where(
             Member.name == data["name"], Member.organization == data.get("organization")
         )
     ).first()
+    if candidate is None:
+        return None
+    # 동명이인 보호: 양쪽 다 이메일이 있는데 서로 다르면 같은 이름·소속이라도 다른 사람으로 취급.
+    # (이메일이 한쪽만 있으면 같은 사람의 결측 보완으로 보고 병합)
+    if email and candidate.email and candidate.email != email:
+        return None
+    return candidate
 
 
 def _link_program(session: Session, member: Member, program: str, cohort: str | None) -> bool:
@@ -183,10 +200,11 @@ def import_members(
     filename: str,
     *,
     program: str | None = None,
+    sheet: str | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """파일 1개를 업서트하고 리포트를 반환한다. dry_run이면 롤백."""
-    rows, file_info = read_file(content, filename)
+    rows, file_info = read_file(content, filename, sheet)
     report: dict[str, Any] = {
         **file_info,
         "rows": len(rows),

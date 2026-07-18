@@ -41,11 +41,17 @@ def create_member(data: MemberCreate, session: Session = Depends(get_session)):
 async def import_members_file(
     file: UploadFile,
     program: str | None = Query(default=None),
+    sheet: str | None = Query(default=None),
     dry_run: bool = Query(default=False),
     session: Session = Depends(get_session),
 ) -> dict[str, Any]:
     """구글시트 다운로드 파일(CSV/XLSX) 업서트 — dry_run=true로 먼저 미리보기 권장 (T-007)."""
     content = await file.read()
     return import_members(
-        session, content, file.filename or "upload.csv", program=program, dry_run=dry_run
+        session,
+        content,
+        file.filename or "upload.csv",
+        program=program,
+        sheet=sheet,
+        dry_run=dry_run,
     )

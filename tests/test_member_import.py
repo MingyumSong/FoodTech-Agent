@@ -83,6 +83,37 @@ def test_missing_email_matches_by_name_and_org(session: Session):
     assert member.phone == "010-5555-6666"  # 빈 셀이 기존 값을 지우지 않음 (AC6)
 
 
+def test_same_name_org_different_emails_are_two_people(session: Session):
+    csv1 = "성명,이메일,소속\n김동명,dong1@example.com,같은회사\n"
+    csv2 = "성명,이메일,소속\n김동명,dong2@example.com,같은회사\n"
+    import_members(session, csv1.encode("utf-8"), "a.csv")
+    report = import_members(session, csv2.encode("utf-8"), "b.csv")
+    assert report["created"] == 1  # 동명이인 보호 — 병합 아님
+    assert len(_members(session)) == 2
+
+
+def test_xlsx_sheet_selection(session: Session):
+    import io as _io
+
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws1 = wb.active
+    assert ws1 is not None
+    ws1.title = "잡동사니"
+    ws1.append(["메모"])
+    ws2 = wb.create_sheet("명단")
+    ws2.append(["성명", "이메일", "소속"])
+    ws2.append(["시트선택", "sheet@example.com", "테스트"])
+    buf = _io.BytesIO()
+    wb.save(buf)
+
+    report = import_members(session, buf.getvalue(), "전체.xlsx", sheet="명단")
+    assert report["sheet"] == "명단" and report["created"] == 1
+    with pytest.raises(ValueError, match="시트 없음"):
+        import_members(session, buf.getvalue(), "전체.xlsx", sheet="없는시트")
+
+
 def test_dry_run_writes_nothing(session: Session):
     report = import_members(session, CSV_TEXT.encode("utf-8"), "명단.csv", dry_run=True)
     assert report["dry_run"] is True and report["created"] == 3

@@ -21,6 +21,7 @@ def main() -> None:
     parser.add_argument(
         "--program", default=None, help="이 명단의 프로그램명 (member_programs 연결)"
     )
+    parser.add_argument("--sheet", default=None, help="xlsx 시트 이름 (미지정 시 활성 시트)")
     parser.add_argument("--dry-run", action="store_true", help="DB에 쓰지 않고 리포트만")
     args = parser.parse_args()
 
@@ -30,7 +31,12 @@ def main() -> None:
 
     with Session(engine) as session:
         report = import_members(
-            session, path.read_bytes(), path.name, program=args.program, dry_run=args.dry_run
+            session,
+            path.read_bytes(),
+            path.name,
+            program=args.program,
+            sheet=args.sheet,
+            dry_run=args.dry_run,
         )
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
