@@ -1,6 +1,6 @@
 # T-005: Railway 배포 (선행 준비 + 배포 본체)
 
-Status: DOING (2026-07-18 — A 완료(AC1~6) + **B 배포 완료(AC7~9)**. 잔여: AC10 CNAME, AC11 크론 실행 확인.
+Status: DOING (2026-07-18 — AC 10/11 충족. **잔여: AC10 CNAME만** (Cloudflare에서 admin 서브도메인 연결).
 배포 URL: `https://app-production-945c.up.railway.app`, 프로젝트 foodtech-hub / 서비스 app, 배포는 `railway up`)
 
 ## Problem
@@ -59,7 +59,7 @@ Status: DOING (2026-07-18 — A 완료(AC1~6) + **B 배포 완료(AC7~9)**. 잔�
 - [x] AC9: `POST /jobs/news-refresh` (신규 JOBS_TOKEN) → `/health/news` ok
       ✅ 80건 수집(naver+brave). 무토큰/틀린토큰 401 확인. `/api/members`도 401(ADMIN_TOKEN 잠금).
 - [ ] AC10: admin.foodtech-center.org에서 앱 응답 (Cloudflare CNAME + Railway 커스텀 도메인)
-- [ ] AC11: news-refresh.yml 크론이 배포 URL 호출 성공 (시크릿 APP_URL·JOBS_TOKEN 등록됨)
+- [x] AC11: news-refresh.yml 크론이 배포 URL 호출 성공 ✅ workflow_dispatch 실행 success (run 29638839205)
 
 ## Verification
 
