@@ -28,47 +28,82 @@ def _esc(text: str) -> str:
     return html_lib.escape(text, quote=True)
 
 
-def _source_label(item: dict[str, Any]) -> str:
+CATEGORY_LABELS_KO = {
+    "cell_cultured": "세포배양식품",
+    "plant_based": "식물기반식품",
+    "convenience": "간편식",
+    "food_printing": "식품프린팅",
+    "smart_manufacturing": "스마트제조",
+    "smart_distribution": "스마트유통",
+    "customizing": "커스터마이징",
+    "food_service": "외식 푸드테크",
+    "upcycling": "업사이클링",
+    "eco_packaging": "친환경포장",
+    "general": "일반",
+}
+
+
+def _meta_row(item: dict[str, Any]) -> str:
+    """카테고리 칩 + 지역·소스 mono 라벨."""
+    label = CATEGORY_LABELS_KO.get(item.get("category") or "", "")
     region = "KR" if item.get("region") == "domestic" else "GLOBAL"
     source = (item.get("source") or "").strip()
-    return f"{region} · {source}" if source else region
+    src = f"{region} · {source}" if source else region
+    chip = (
+        f'<span style="background:{ACCENT_SOFT};color:{ACCENT};border-radius:999px;'
+        f'padding:2px 10px;font-size:11.5px;font-weight:700;">{_esc(label)}</span> '
+        if label
+        else ""
+    )
+    return (
+        f'<div style="margin-bottom:5px;">{chip}<span style="font-family:{MONO};'
+        f'font-size:11px;color:{GRAY_SOFT};">{_esc(src)}</span></div>'
+    )
 
 
 def _course_header(no: str, name: str, desc: str) -> str:
-    """코스 뱃지 + 이름 + 설명 + 우측으로 뻗는 헤어라인 (목업 .fp-course)."""
-    return f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin:30px 0 6px;">
+    """코스 뱃지(진파랑) + 이름 + 설명 + 우측 헤어라인 (목업 .fp-course 강화판)."""
+    return f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0 8px;">
 <tr>
   <td style="width:1%;white-space:nowrap;padding-right:10px;">
-    <span style="font-family:{MONO};font-size:11px;font-weight:700;color:{ACCENT};
-      background:{ACCENT_SOFT};padding:4px 8px;border-radius:4px;">{no}</span>
+    <span style="font-family:{MONO};font-size:11px;font-weight:700;color:#FFFFFF;
+      background:{ACCENT};padding:4px 9px;border-radius:4px;">{no}</span>
   </td>
-  <td style="width:1%;white-space:nowrap;font-size:13px;font-weight:800;
-      letter-spacing:.06em;color:{INK};padding-right:10px;">{_esc(name)}</td>
+  <td style="width:1%;white-space:nowrap;font-size:15px;font-weight:800;
+      letter-spacing:.05em;color:{INK};padding-right:10px;">{_esc(name)}</td>
   <td style="width:1%;white-space:nowrap;font-size:12px;color:{GRAY_SOFT};
       padding-right:12px;">{_esc(desc)}</td>
-  <td style="border-top:1px solid {LINE_SOFT};font-size:0;">&nbsp;</td>
+  <td style="border-top:1px solid {LINE};font-size:0;">&nbsp;</td>
 </tr>
 </table>"""
 
 
-def _item(item: dict[str, Any], *, summary_limit: int = 200, last: bool = False) -> str:
-    """기사 1건 — 소스 라벨 + 제목 링크 + 요약 (목업 .fp-item)."""
+def _headline_item(item: dict[str, Any], *, last: bool = False) -> str:
+    """에피타이저 — 칩 + 제목 링크 한 줄, 가볍게."""
     border = "" if last else f"border-bottom:1px solid {LINE_SOFT};"
+    return f"""<div style="padding:13px 0;{border}">
+  {_meta_row(item)}
+  <a href="{item["url"]}" style="color:{INK};font-weight:700;font-size:15px;
+     text-decoration:none;line-height:1.5;">{_esc(item["title"])}</a>
+</div>"""
+
+
+def _main_card(item: dict[str, Any], *, summary_limit: int = 180) -> str:
+    """메인 — 연하늘 카드로 확실한 위계."""
     summary = (item.get("summary") or "").strip()
     if len(summary) > summary_limit:
         summary = summary[: summary_limit - 1].rstrip() + "…"
     summary_html = (
-        f'<p style="margin:4px 0 0;font-size:13.5px;line-height:1.6;color:{GRAY};">'
+        f'<p style="margin:6px 0 0;font-size:13.5px;line-height:1.65;color:{GRAY};">'
         f"{_esc(summary)}</p>"
         if summary
         else ""
     )
-    return f"""<div style="padding:12px 0;{border}">
-  <div style="font-family:{MONO};font-size:11px;color:{GRAY_SOFT};">{
-        _esc(_source_label(item))
-    }</div>
-  <a href="{item["url"]}" style="color:{INK};font-weight:700;font-size:15.5px;
-     text-decoration:none;line-height:1.5;">{_esc(item["title"])}</a>
+    return f"""<div style="background:#F2F7FC;border-left:3px solid {ACCENT};
+     border-radius:0 8px 8px 0;padding:16px 18px;margin:0 0 10px;">
+  {_meta_row(item)}
+  <a href="{item["url"]}" style="color:{INK};font-weight:800;font-size:16.5px;
+     text-decoration:none;line-height:1.45;">{_esc(item["title"])}</a>
   {summary_html}
 </div>"""
 
@@ -85,10 +120,10 @@ def render_foodie_pick(
 ) -> str:
     """푸디픽 1호분 HTML. 아이템 dict = news_items 행(title/url/summary/source/region/category)."""
     headlines = "".join(
-        _item(it, summary_limit=90, last=(i == len(headline_items) - 1))
+        _headline_item(it, last=(i == len(headline_items) - 1))
         for i, it in enumerate(headline_items)
     )
-    mains = "".join(_item(it, last=(i == len(main_items) - 1)) for i, it in enumerate(main_items))
+    mains = "".join(_main_card(it) for it in main_items)
     return f"""<!DOCTYPE html>
 <html lang="ko">
 <body style="margin:0;padding:0;background:{BG};">
@@ -97,12 +132,14 @@ def render_foodie_pick(
 <table width="600" cellpadding="0" cellspacing="0"
        style="width:600px;max-width:100%;background:#FFFFFF;font-family:{FONT};color:{INK};">
 
-<tr><td style="padding:30px 32px 22px;border-bottom:1px solid {LINE};">
+<tr><td style="height:5px;background:{ACCENT};font-size:0;line-height:0;">&nbsp;</td></tr>
+
+<tr><td style="padding:28px 32px 22px;border-bottom:1px solid {LINE};">
   <table width="100%" cellpadding="0" cellspacing="0"><tr>
     <td>
-      <div style="font-size:26px;font-weight:800;letter-spacing:-.02em;">푸디픽<span
-        style="color:{ACCENT};">✓</span></div>
-      <div style="font-size:12px;color:#6B7280;margin-top:2px;">FOODIE's PICK —
+      <div style="font-size:30px;font-weight:800;letter-spacing:-.02em;color:{ACCENT};">푸디픽<span
+        style="color:{INK};">✓</span></div>
+      <div style="font-size:12.5px;color:#6B7280;margin-top:3px;">FOODIE's PICK —
         푸디가 고른 푸드테크, 매주 목요일</div>
     </td>
     <td align="right" valign="bottom" style="font-family:{MONO};font-size:12px;
@@ -113,9 +150,10 @@ def render_foodie_pick(
 <tr><td style="padding:0 32px 8px;">
 
   {_course_header("01", "아뮤즈부슈", "이번 주 숫자 하나")}
-  <div style="border-left:3px solid {ACCENT};padding:2px 0 2px 18px;margin:8px 0 6px;">
-    <div style="font-size:34px;font-weight:800;letter-spacing:-.02em;">{_esc(amuse_big)}</div>
-    <div style="font-size:14px;color:{GRAY};margin-top:2px;">{_esc(amuse_caption)}</div>
+  <div style="background:{ACCENT};border-radius:10px;padding:22px 24px;margin:10px 0 4px;">
+    <div style="font-size:38px;font-weight:800;letter-spacing:-.02em;
+         color:#FFFFFF;">{_esc(amuse_big)}</div>
+    <div style="font-size:14px;color:#D9E8F5;margin-top:4px;">{_esc(amuse_caption)}</div>
   </div>
 
   {_course_header("02", "에피타이저", "헤드라인 픽 3")}
@@ -124,17 +162,18 @@ def render_foodie_pick(
   {_course_header("03", "메인", "깊이 볼 뉴스 2")}
   {mains}
 
-  <div style="margin:26px 0 0;padding:14px 18px;background:#F5F7FA;border-radius:8px;
-       font-size:13.5px;color:{GRAY};">
-    오늘 코스는 여기까지입니다. 다음 주 목요일에 더 신선한 픽으로 차릴게요. — 푸디 드림
+  <div style="margin:28px 0 0;padding:16px 20px;background:{ACCENT_SOFT};border-radius:8px;
+       font-size:13.5px;color:#2B5474;line-height:1.6;">
+    오늘 코스는 여기까지입니다. 다음 주 목요일에 더 신선한 픽으로 차릴게요. — <b>푸디 드림</b>
   </div>
 
 </td></tr>
 
-<tr><td style="padding:22px 32px 30px;font-size:12px;color:{GRAY_SOFT};
-     border-top:1px solid {LINE};line-height:1.7;">
-  푸디픽은 푸드테크센터(foodtech-center.org)가 매주 목요일 발행합니다.<br>
-  이 메일에 답장하시면 운영진이 직접 읽습니다.<br>
+<tr><td style="padding:22px 32px 28px;font-size:12px;color:{GRAY_SOFT};
+     border-top:1px solid {LINE};line-height:1.8;">
+  푸디픽은 <a href="https://foodtech-center.org" style="color:{ACCENT};
+  text-decoration:none;">푸드테크센터</a>가 매주 목요일 발행합니다.<br>
+  이 메일에 <b style="color:{GRAY};">답장</b>하시면 운영진이 직접 읽습니다.<br>
   <a href="{unsubscribe_url}" style="color:#6B7280;">수신거부</a>
 </td></tr>
 
