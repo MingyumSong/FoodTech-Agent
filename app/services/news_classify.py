@@ -187,7 +187,11 @@ def classify_and_store(
             for i, it in enumerate(batch)
         ]
         content = _call_openrouter(client, payload)
-        labels.update(_parse_labels(content))
+        batch_labels = _parse_labels(content)
+        if not batch_labels:
+            # 200인데 빈/깨진 응답 간헐 재현(07-21 배치 3개 유실) — 1회 재시도
+            batch_labels = _parse_labels(_call_openrouter(client, payload))
+        labels.update(batch_labels)
 
     now = datetime.now(UTC)
     for i, it in enumerate(new_items):

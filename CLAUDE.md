@@ -131,10 +131,11 @@ newsletters + send_logs + engagement_events + news_items.
 - ~~[보안 P0] GitHub 레포 private 전환~~ ✅ 2026-07-18 완료.
   (OpenRouter 키 로테이션은 취소 — 노션이 2인 전용 워크스페이스라 노출 아님, 결정 7 참고.)
 
-1. ~~T-001 뉴스 수집~~ ✅ + T-006 분류 통합·DB 이관 **구현 완료, 배포는 HOLD**(2026-07-18) —
+1. ~~T-001 뉴스 수집 + T-006 분류·DB 이관~~ ✅ 2026-07-21 **배포·라이브 검증 완료** —
    수집 → LLM 분류(gemini-2.5-flash, 신규 URL만) → `news_items` 저장(슬러그 11종 = 정부 10대 + general).
-   **희정 분류 컨펌 후 railway up**: `docs/research/classification-review-2026-07-18.md`(노션 3주차에도 요약)
-   → 오분류 의심 8건 답변 반영·프롬프트 보정 → 배포. 학술(OpenAlex)은 별도 티켓.
+   희정 검수 반영: 프롬프트 v2(판정 5단계+reason 강제) + 위키·야후 도메인 차단 + 니치 검색어 3종
+   naver sim 병행. 평가 도구·근거: `docs/research/prompt-eval-2026-07-21.md`(검수 코퍼스로 재채점 가능).
+   학술(OpenAlex)은 별도 티켓.
 2. ~~T-003 Resend 웹훅~~ ✅ 2026-07-18 완료 — `POST /webhooks/resend`(svix 서명 검증) →
    `engagement_events` 멱등 적재. 라이브 검증: opened/clicked 실적재, clicked url=원본 기사 URL.
    추적 도메인 `links.news.foodtech-center.org`(Resend 추적 기본 OFF라 필수였음). 설계 결정 3건은 티켓 참조.

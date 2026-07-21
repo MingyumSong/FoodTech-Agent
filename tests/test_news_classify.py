@@ -82,6 +82,26 @@ def test_existing_urls_skip_llm_call(session: Session, monkeypatch):
     assert len(list(session.exec(select(NewsItem)).all())) == 1
 
 
+def test_empty_response_retried_once_per_batch(session: Session, monkeypatch):
+    """200인데 빈/깨진 응답이 오면 그 배치만 1회 재시도한다 (07-21 운영 1차 배치 유실 재발 방지)."""
+    calls = {"n": 0}
+
+    def flaky_llm(client, batch):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return ""  # 첫 호출은 빈 응답
+        return json.dumps([{"id": row["id"], "category": "간편식"} for row in batch])
+
+    monkeypatch.setattr(news_classify, "_call_openrouter", flaky_llm)
+    stats = classify_and_store(
+        [_item("https://a.com/1")],
+        client=object(),  # pyright: ignore[reportArgumentType]
+        session=session,
+    )
+    assert calls["n"] == 2
+    assert stats["stored"] == 1 and stats["unclassified"] == 0
+
+
 def test_parse_failure_leaves_item_for_retry(session: Session, monkeypatch):
     monkeypatch.setattr(news_classify, "_call_openrouter", lambda c, b: "널 위한 답은 없다")
     stats = classify_and_store(
