@@ -7,29 +7,30 @@
 </head>
 <body>
 <style>
+  /* 팔레트: 하늘·파랑 계열 (2026-07-22 희정 피드백 — 기존 초록에서 전환) */
   :root {
-    --bg: #F5F4EF;
-    --ink: #23251F;
-    --ink-soft: #5C5F55;
-    --line: #DDDCD2;
+    --bg: #F2F5F9;
+    --ink: #1E242B;
+    --ink-soft: #55606B;
+    --line: #D6DDE5;
     --card: #FFFFFF;
-    --accent: #2E6B44;
-    --accent-soft: #E7EFE9;
-    --chip-bg: #EDECE4;
+    --accent: #1F6FB2;
+    --accent-soft: #E4EFF8;
+    --chip-bg: #E8EDF3;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1B1D18; --ink: #E9E8DF; --ink-soft: #A6A99B; --line: #35382F;
-      --card: #24261F; --accent: #7FBE97; --accent-soft: #2A3A2F; --chip-bg: #2C2E26;
+      --bg: #161B21; --ink: #E4E9EE; --ink-soft: #97A4B0; --line: #2E3843;
+      --card: #1E252D; --accent: #7DB8E8; --accent-soft: #24384A; --chip-bg: #28313A;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #1B1D18; --ink: #E9E8DF; --ink-soft: #A6A99B; --line: #35382F;
-    --card: #24261F; --accent: #7FBE97; --accent-soft: #2A3A2F; --chip-bg: #2C2E26;
+    --bg: #161B21; --ink: #E4E9EE; --ink-soft: #97A4B0; --line: #2E3843;
+    --card: #1E252D; --accent: #7DB8E8; --accent-soft: #24384A; --chip-bg: #28313A;
   }
   :root[data-theme="light"] {
-    --bg: #F5F4EF; --ink: #23251F; --ink-soft: #5C5F55; --line: #DDDCD2;
-    --card: #FFFFFF; --accent: #2E6B44; --accent-soft: #E7EFE9; --chip-bg: #EDECE4;
+    --bg: #F2F5F9; --ink: #1E242B; --ink-soft: #55606B; --line: #D6DDE5;
+    --card: #FFFFFF; --accent: #1F6FB2; --accent-soft: #E4EFF8; --chip-bg: #E8EDF3;
   }
   * { box-sizing: border-box; }
   body {
@@ -77,7 +78,7 @@
     border-bottom: 1px solid var(--line); display: flex; gap: 8px; flex-wrap: wrap;
   }
   .email-toolbar b { color: var(--ink); font-weight: 600; }
-  .email-body { background: #EDEBE4; padding: 26px 14px; }
+  .email-body { background: #E7EDF4; padding: 26px 14px; }
   .email { max-width: 600px; margin: 0 auto; }
 
   table.spec { width: 100%; border-collapse: collapse; margin: 0; font-size: 14px; }
