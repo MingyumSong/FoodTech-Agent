@@ -25,7 +25,8 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 - **스택**: FastAPI + SQLModel + Alembic. uv(Python 3.13). DB: 로컬·테스트 Docker Postgres / 운영 Supabase(`DATABASE_URL`).
 - **구조**: `app/{routes,services,models,lib}` — **Route → Service → Model** 계층. 비즈니스 로직은 서비스에, 라우트는 HTTP만.
 - **참조 구현**: members 수직 슬라이스 (model→migration→service→route→test). 새 기능은 이 패턴을 따른다.
-- **스케줄 작업**: `/jobs/*` 엔드포인트(Bearer `JOBS_TOKEN`, 멱등) ← GitHub Actions 크론이 호출.
+- **스케줄 작업**: `/jobs/*` 엔드포인트(Bearer `JOBS_TOKEN`, 멱등: news-refresh,
+  newsletter-build, newsletter-send) ← 크론/수동 호출. 현황판은 `GET /admin/status`(Basic, T-010).
 - **발송 카나리**: `daily-send-check.yml` 크론이 매일 09:00 KST Resend 검증 메일 1통 발송
   (GitHub Secrets: `RESEND_API_KEY`, `CHECK_EMAIL`). 실패 시 Actions 실패 알림 = 발송 경로 이상 신호.
 - **수집 크론**: `news-refresh.yml` — 매일 07:00 KST 배포 앱의 `/jobs/news-refresh` 호출 후
@@ -39,7 +40,8 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 로직 참고 전용(복사 금지, route→service→model로 재작성). 뉴스 수집·CSV 임포트는 T-001/T-006/T-007로
 재구현 완료라 참고 가치 소멸. **아직 가져올 로직**: ① 캠페인 발송·수신거부 (`email_client.py` —
 키 없으면 DRY RUN, `send_logs`/`newsletters` 흐름) — 발송 티켓(T-008)에서,
-② 관리자 매직링크 로그인 15분 + 세션 30일 (`magic_links`/`admin_sessions`) — 관리자 페이지 티켓에서.
+② 관리자 매직링크 로그인 15분 + 세션 30일 (`magic_links`/`admin_sessions`) — 관리자 페이지에
+쓰기 기능(발송 버튼 등) 붙일 때. 읽기 전용 현황판은 T-010으로 이미 배포됨(Basic 인증 임시).
 신규 스키마의 단일 진실은 Alembic 마이그레이션(Supabase 적용됨): members + member_programs +
 newsletters + send_logs + engagement_events + news_items.
 
@@ -49,7 +51,8 @@ newsletters + send_logs + engagement_events + news_items.
 
 1. **DB: PostgreSQL 단일 원본, 호스팅은 Supabase.** (2026-07-08 변경, 07-11 노션 동기화) 회원 3,000명이라
    Airtable 무료 한도(1,000행) 초과 + 추적 이벤트가 대용량이고, Score는 회원×이벤트 JOIN이라
-   같은 DB에 있어야 함. → **Supabase(Postgres) = 회원 + 발송 + 추적 단일 원본**, 관리 UI는 앱의 admin.html,
+   같은 DB에 있어야 함. → **Supabase(Postgres) = 회원 + 발송 + 추적 단일 원본**, 관리 UI는 앱의
+   `GET /admin/status`(T-010, 서버 렌더 HTML — admin.html은 프로토타입 잔재로 폐기),
    **구글시트는 직원 편집용으로 유지하고 주기적으로 임포트**(임포터가 해당 양식 이미 지원).
    Supabase 계정은 희정 생성 → 민겸 팀멤버 초대 → 스키마 설계는 민겸.
    ✅ 보안(2026-07-13): 전 테이블 RLS 활성화(T-002b) + Data API 비활성화 — PostgREST 경로 이중 차단.
@@ -68,6 +71,8 @@ newsletters + send_logs + engagement_events + news_items.
 4. **발송은 4주차에 파일럿으로 조기 시작.** 완벽하지 않아도 시작해서 5·6·7주차 실데이터 누적.
    그 데이터로 Activity Score 가중치를 확정한다.
    파일럿 세그먼트는 **100명 이하**(2026-07-15) — Resend 무료 티어(일 100통) 한도 내, 본 발송 전 Pro($20/월) 전환.
+   ✅ 2026-07-22: 발송 코드 완성(T-008)·푸디픽 #0 실발송·추적 관통 검증. **파일럿 대상 = 랩실**(교수님 결정,
+   이메일 명단 추후 수령 → `pilot-lab` 프로그램 임포트). 발송 시점은 7/23 싱크에서.
 
 5. **Activity Score = 행동별 가중합.** 열람 < 클릭 < 전달 순으로 가중치.
    열람(open)은 Apple Mail/Gmail 프록시 때문에 신뢰도 낮음 → 보조 신호로만.
@@ -147,7 +152,13 @@ newsletters + send_logs + engagement_events + news_items.
 5. ~~회원 임포터(T-007)~~ ✅ 2026-07-18 — CSV/XLSX 업서트(멱등·동명이인 보호)·dry_run·API+CLI.
    **실명단 임포트 완료: Supabase 3,413명**(이메일 94%, 협의회 시트 — 워크북 시트 19장이라 원본 확정은
    희정 논의, 시트→엑셀 재다운로드 후 재임포트가 운영 루틴). 구글시트 API 직접 연동은 후속 티켓.
-6. **발송 최소형(파일럿)** — 푸디픽 조립 + Resend 발송 + send_logs. 이후 Activity Score 함수 + 분류 잡.
+6. ~~발송 최소형(T-008)~~ ✅ 2026-07-22 — email_client(DRY RUN)/newsletter build·send(멱등·100명 가드·
+   provider_id 저장)/푸디픽 템플릿(파랑, 스크린샷 검수)/수신거부(RFC 8058). 운영 실발송(#0) →
+   opened/clicked가 member_id로 적재 확인. 잔여는 운영 절차: 랩실 명단 수령 → pilot-lab 임포트 → 본 파일럿.
+7. ~~파이프라인 현황판(T-010)~~ ✅ 2026-07-22 — `GET /admin/status`(Basic=admin/ADMIN_TOKEN, 읽기 전용,
+   PII 없음) 배포됨. 싱크 데모용. 조작 버튼은 매직링크 티켓에서.
+8. **T-009 기사 큐레이션(TODO, 다음 착수 후보)** — 소스 신뢰도·분야 다양성·중복 병합·모바일 스크린샷 검수.
+   파일럿 #0 관찰(쿠폰 기사 톱픽, 지역지 모바일 불량)에서 도출. 이후 Activity Score 함수 + 매직링크.
 
 ---
 
