@@ -49,7 +49,14 @@ def test_stores_slug_and_discards_irrelevant(session: Session, monkeypatch):
     items = [_item("https://a.com/1"), _item("https://a.com/2"), _item("https://a.com/3")]
     stats = classify_and_store(items, client=object(), session=session)  # pyright: ignore[reportArgumentType]
 
-    assert stats == {"new": 3, "stored": 2, "discarded": 1, "unclassified": 0, "existing": 0}
+    assert stats == {
+        "new": 3,
+        "blocked": 0,
+        "stored": 2,
+        "discarded": 1,
+        "unclassified": 0,
+        "existing": 0,
+    }
     rows = list(session.exec(select(NewsItem).order_by(NewsItem.id)).all())  # pyright: ignore[reportArgumentType]
     assert [r.category for r in rows] == ["cell_cultured", "general"]
     assert rows[0].url == "https://a.com/1"
@@ -89,7 +96,36 @@ def test_parse_failure_leaves_item_for_retry(session: Session, monkeypatch):
 def test_no_api_key_skips_everything(session: Session, monkeypatch):
     monkeypatch.setattr(settings, "openrouter_api_key", "")
     stats = classify_and_store([_item("https://a.com/1")], session=session)
-    assert stats == {"new": 0, "stored": 0, "discarded": 0, "unclassified": 0, "existing": 0}
+    assert stats == {
+        "new": 0,
+        "blocked": 0,
+        "stored": 0,
+        "discarded": 0,
+        "unclassified": 0,
+        "existing": 0,
+    }
+
+
+def test_non_news_domains_blocked_before_llm(session: Session, monkeypatch):
+    """위키백과·시세 페이지는 LLM에 보내지 않고 결정적으로 차단한다 (2026-07-21 검수 반영)."""
+    calls = {"n": 0}
+
+    def counting_llm(client, batch):
+        calls["n"] += 1
+        return json.dumps([{"id": row["id"], "category": "간편식"} for row in batch])
+
+    monkeypatch.setattr(news_classify, "_call_openrouter", counting_llm)
+    items = [
+        _item("https://en.wikipedia.org/wiki/3D_printing"),
+        _item("https://finance.yahoo.com/quote/RR/"),
+        _item("https://a.com/1"),
+    ]
+    stats = classify_and_store(items, client=object(), session=session)  # pyright: ignore[reportArgumentType]
+
+    assert stats["new"] == 3 and stats["blocked"] == 2 and stats["stored"] == 1
+    urls = [r.url for r in session.exec(select(NewsItem)).all()]
+    assert urls == ["https://a.com/1"]
+    assert calls["n"] == 1  # 차단분은 LLM 배치에 포함되지 않는다
 
 
 def test_parse_labels_is_lenient():

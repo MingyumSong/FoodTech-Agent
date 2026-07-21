@@ -10,6 +10,7 @@ import re
 import time
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -44,16 +45,35 @@ KO_BY_SLUG = {v: k for k, v in SLUG_BY_KO.items()}
 DISCARD_LABEL = "해당없음"
 CATEGORIES_KO = [*SLUG_BY_KO.keys(), DISCARD_LABEL]
 
-SYSTEM_PROMPT = f"""당신은 푸드테크 뉴스 분류기다. 각 뉴스를 정부 "푸드테크 10대 핵심분야" 중
-가장 핵심인 주제 정확히 하나로 분류하라.
-- 푸드테크 관련이지만 10대 분야 어디에도 맞지 않으면(예: 스마트팜, 정밀발효, 투자·정책 일반) "일반".
-- 푸드테크와 무관한 뉴스(의료, 일반 경제 등)는 "해당없음".
+# 검수(2026-07-21)로 뉴스가 아님이 확정된 도메인 — LLM 판정 전에 결정적으로 차단.
+NON_NEWS_DOMAINS = {"wikipedia.org", "finance.yahoo.com"}
+
+# 판정 순서·예시는 희정 검수(docs/research/뉴스분류_검수완료.md) 오분류 패턴에서 도출.
+SYSTEM_PROMPT = f"""당신은 푸드테크 뉴스 분류기다. 각 항목을 아래 판정 순서에 따라
+정부 "푸드테크 10대 핵심분야" 중 정확히 하나로 분류하라.
+
+판정 순서:
+1. 뉴스 기사가 아니면 "해당없음" — 백과사전 문서, 주가·시세 페이지, 포럼 질문글,
+   단순 제품·매장 소개 페이지, 퀴즈 정답·쿠폰·이벤트 안내.
+2. 푸드테크(식품 산업의 기술·산업 소식)와 무관하면 "해당없음" — 예: 식품과 무관한
+   의료·제약·바이오, 자동차·IT 기업, 기업 승계·지배구조·주가 일반, 지자체 행정·복지·축제
+   소식, 기술 요소 없는 레스토랑·맛집 소개.
+3. 관련이 있으면 기사의 "핵심 주제"가 속한 분야 하나로 분류한다. 회사의 부수 사업이나
+   지나가는 한 문장 언급은 분류 근거가 아니다.
+4. 푸드테크 관련이지만 핵심 주제가 10대 분야 어디에도 맞지 않으면 "일반" —
+   예: 스마트팜, 정밀발효, 투자·정책 일반, 협회·행사 소식, 업계 동향 모음, 식품 기업 일반 소식.
+5. 확신이 없을 때: 푸드테크 여부가 애매하면 "해당없음", 분야가 애매하면 "일반".
 
 허용 카테고리 (이 목록의 문자열을 그대로 사용):
 {json.dumps(CATEGORIES_KO, ensure_ascii=False)}
 
 출력은 JSON 배열만. 다른 텍스트·설명·코드펜스 금지:
 [{{"id": 0, "category": "간편식"}}, ...]"""
+
+
+def _is_non_news_url(url: str) -> bool:
+    host = urlparse(url).netloc.lower()
+    return any(host == d or host.endswith("." + d) for d in NON_NEWS_DOMAINS)
 
 
 def _call_openrouter(client: httpx.Client, batch: list[dict[str, Any]]) -> str:
@@ -113,11 +133,19 @@ def classify_and_store(
 ) -> dict[str, int]:
     """신규 URL만 LLM 분류 → "해당없음" 폐기 → news_items에 멱등 저장.
 
-    반환: {"new": 신규, "stored": 저장, "discarded": 폐기, "unclassified": 실패, "existing": 기존}
+    반환: {"new": 신규, "blocked": 도메인차단, "stored": 저장, "discarded": 폐기,
+          "unclassified": 실패, "existing": 기존}
     """
     if not settings.openrouter_api_key:
         logger.warning("no OPENROUTER_API_KEY — classification skipped")
-        return {"new": 0, "stored": 0, "discarded": 0, "unclassified": 0, "existing": 0}
+        return {
+            "new": 0,
+            "blocked": 0,
+            "stored": 0,
+            "discarded": 0,
+            "unclassified": 0,
+            "existing": 0,
+        }
     if client is None:
         with httpx.Client() as own_client:
             return classify_and_store(items, client=own_client, session=session)
@@ -127,9 +155,11 @@ def classify_and_store(
 
     urls = [it["url"] for it in items if it.get("url")]
     existing = set(session.exec(select(NewsItem.url).where(col(NewsItem.url).in_(urls))).all())
-    new_items = [it for it in items if it.get("url") and it["url"] not in existing]
+    fresh = [it for it in items if it.get("url") and it["url"] not in existing]
+    new_items = [it for it in fresh if not _is_non_news_url(it["url"])]
     stats = {
-        "new": len(new_items),
+        "new": len(fresh),
+        "blocked": len(fresh) - len(new_items),
         "stored": 0,
         "discarded": 0,
         "unclassified": 0,
