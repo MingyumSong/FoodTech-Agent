@@ -51,6 +51,7 @@ def _item_dict(item: NewsItem) -> dict[str, Any]:
         "url": item.url,  # 원본 그대로 — 클릭 매칭(T-003) 전제, 변형 금지
         "summary": item.summary,
         "source": item.source,
+        "region": item.region,
         "category": item.category,
     }
 
@@ -78,19 +79,28 @@ def build_newsletter(session: Session, *, program: str, days: int = 7) -> Newsle
         raise ValueError("코너 구성 실패 — 요약 있는 기사 2건 + 헤드라인 3건이 필요")
 
     categories = {it.category for it in items}
-    amuse = f"이번 주 새로 담은 푸드테크 뉴스 {len(items)}건, 분야 {len(categories)}개"
-    week_no = datetime.now(UTC).isocalendar()[1]
+    amuse_big = f"{len(items)}건"
+    amuse_caption = f"이번 주 푸디가 새로 담은 푸드테크 뉴스 — 분야 {len(categories)}개"
+    now = datetime.now(UTC)
+    # 호수 = 기존 뉴스레터 수 (파일럿 첫 호 = #000, 목업 표기 규칙)
+    issue_no = len(session.exec(select(Newsletter.id)).all())
+    top_title = mains[0].title[:30]
+    picks = len(mains) + len(headlines)
 
     newsletter = Newsletter(
-        subject=f"[푸디픽] 이번 주 푸드테크 소식 ({week_no}주차)",
+        subject=f"푸디픽 #{issue_no} | 이번 주 푸드테크 {picks}선 — {top_title}",
         html_body=render_foodie_pick(
-            amuse_text=amuse,
+            issue_no=issue_no,
+            issue_date=now.strftime("%Y-%m-%d"),
+            amuse_big=amuse_big,
+            amuse_caption=amuse_caption,
             main_items=[_item_dict(it) for it in mains],
             headline_items=[_item_dict(it) for it in headlines],
             unsubscribe_url=UNSUB_PLACEHOLDER,
         ),
         text_body=render_text_fallback(
-            amuse_text=amuse,
+            amuse_big=amuse_big,
+            amuse_caption=amuse_caption,
             main_items=[_item_dict(it) for it in mains],
             headline_items=[_item_dict(it) for it in headlines],
         ),
