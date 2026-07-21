@@ -12,6 +12,9 @@ class SearchQuery(NamedTuple):
     category: str  # 푸드테크 10대 핵심분야 (+ "일반")
     ko: str  # 네이버 뉴스 API용
     en: str  # Brave / Google News RSS(해외)용
+    # 니치 검색어는 최신순(date)이 형태소 퍼지 매칭 노이즈로 도배됨 → 관련도순(sim) 병행 수집.
+    # 2026-07-21 실측: 식품프린팅 date 1/10 관련 → sim 8/10. 구문검색·제외연산자는 API 미지원.
+    naver_sim: bool = False
 
 
 SEARCH_QUERIES: list[SearchQuery] = [
@@ -19,13 +22,13 @@ SEARCH_QUERIES: list[SearchQuery] = [
     SearchQuery("세포배양식품", "배양육 OR 세포배양식품", "cultivated meat"),
     SearchQuery("식물기반식품", "대체육 OR 식물성 대체식품", "plant-based food"),
     SearchQuery("간편식", "간편식 OR 밀키트", "ready meal HMR"),
-    SearchQuery("식품프린팅", "식품 3D프린팅", "3D food printing"),
-    SearchQuery("스마트제조", "식품 스마트팩토리", "smart food manufacturing"),
+    SearchQuery("식품프린팅", "식품 3D프린팅", "3D food printing", naver_sim=True),
+    SearchQuery("스마트제조", "식품 스마트팩토리", "smart food manufacturing", naver_sim=True),
     SearchQuery("스마트유통", "식품 콜드체인 OR 식품 스마트유통", "food cold chain technology"),
     SearchQuery("커스터마이징", "맞춤형 식품 OR 개인맞춤 영양", "personalized nutrition"),
     SearchQuery("외식 푸드테크", "서빙로봇 OR 조리로봇", "restaurant robot automation"),
     SearchQuery("업사이클링", "푸드 업사이클링", "food upcycling"),
-    SearchQuery("친환경포장", "친환경 식품포장", "sustainable food packaging"),
+    SearchQuery("친환경포장", "친환경 식품포장", "sustainable food packaging", naver_sim=True),
 ]
 
 

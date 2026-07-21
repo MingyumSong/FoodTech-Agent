@@ -90,11 +90,16 @@ def fetch_naver(client: httpx.Client | None = None) -> list[dict[str, Any]]:
         "X-Naver-Client-Secret": settings.naver_client_secret,
     }
     items: list[dict[str, Any]] = []
-    for q in SEARCH_QUERIES:
+    requests = [
+        (q, sort)
+        for q in SEARCH_QUERIES
+        for sort in (("date", "sim") if q.naver_sim else ("date",))
+    ]
+    for q, sort in requests:
         try:
             resp = get_with_retry(
                 NAVER_NEWS_API,
-                params={"query": q.ko, "display": 10, "sort": "date"},
+                params={"query": q.ko, "display": 10, "sort": sort},
                 headers=headers,
                 client=client,
             )

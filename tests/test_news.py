@@ -169,14 +169,14 @@ def test_primary_sources_used_when_healthy(cache_path, monkeypatch):
 
 
 def test_naver_parses_and_shares_queries(cache_path, monkeypatch):
-    """네이버 경로가 공용 쿼리 목록을 그대로 사용한다 (AC4)."""
+    """네이버 경로가 공용 쿼리 목록을 그대로 사용하고, 니치 검색어는 sim 병행 수집한다 (AC4)."""
     monkeypatch.setattr(settings, "naver_client_id", "id")
     monkeypatch.setattr(settings, "naver_client_secret", "secret")
-    seen_queries: list[str] = []
+    seen: list[tuple[str, str]] = []
 
     def handler(request):
         assert request.url.host == "openapi.naver.com"
-        seen_queries.append(request.url.params["query"])
+        seen.append((request.url.params["query"], request.url.params["sort"]))
         return httpx.Response(
             200,
             json={
@@ -193,7 +193,13 @@ def test_naver_parses_and_shares_queries(cache_path, monkeypatch):
         )
 
     items = news.fetch_naver(client=make_client(handler))
-    assert seen_queries == [q.ko for q in SEARCH_QUERIES]
+    expected = [
+        (q.ko, sort)
+        for q in SEARCH_QUERIES
+        for sort in (("date", "sim") if q.naver_sim else ("date",))
+    ]
+    assert seen == expected
+    assert sum(1 for _, sort in seen if sort == "sim") == 3  # 니치 3종만 병행
     assert items[0]["title"] == "배양육 상용화 임박"  # HTML 태그 제거
     assert items[0]["url"] == "https://media.example.com/1"  # 언론사 원문 우선
     assert items[0]["published_at"].startswith("2026-07-13")
