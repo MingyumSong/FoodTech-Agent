@@ -1,6 +1,10 @@
 # T-008: 발송 최소형 — 푸디픽 조립 + Resend 발송 + send_logs (파일럿)
 
-Status: TODO — **착수 가능** (2026-07-22 선행 조건 해소: T-006 배포 완료 + 세그먼트·브랜딩 결정 수령)
+Status: IN PROGRESS (2026-07-22 — **구현 완료·AC1 검증**, 배포 + 실발송 검증(AC6) 대기.
+구현: email_client(DRY RUN 지원) + newsletter 서비스(build/send 2단계, 멱등, 100명 가드,
+provider_id 저장) + 푸디픽 템플릿(파란 팔레트, 3코너) + /jobs/newsletter-build·send +
+GET/POST /unsubscribe(RFC 8058) + 테스트 9개. 로컬 실뉴스 30건으로 조립 미리보기 확인.
+남은 것: railway up → 민겸·희정 실발송(AC6) → 랩실 명단 수령 시 pilot-lab 임포트 → 파일럿 발송.)
 
 ## Problem
 
@@ -45,7 +49,7 @@ Status: TODO — **착수 가능** (2026-07-22 선행 조건 해소: T-006 배�
 
 ## Acceptance Criteria (초안 — 착수 시 구체화)
 
-- [ ] AC1: DRY RUN 모드로 푸디픽 HTML 조립 결과 확인 가능 (키 없이 로컬 검증)
+- [x] AC1: DRY RUN 모드로 푸디픽 HTML 조립 결과 확인 가능 (2026-07-22 로컬 실뉴스 30건 조립 확인)
 - [ ] AC2: 발송 시 수신자별 send_logs 생성 + provider_id 저장 → 웹훅 이벤트가 member_id로 자동 연결
 - [ ] AC3: 같은 뉴스레터 재발송 호출 → 이미 sent인 수신자 스킵 (멱등)
 - [ ] AC4: 100명 초과 세그먼트 → 발송 거부

@@ -7,7 +7,7 @@ from app.config import settings
 from app.db import engine
 from app.lib.errors import register_error_handlers
 from app.lib.logger import get_logger
-from app.routes import health, jobs, members, webhooks
+from app.routes import health, jobs, members, unsubscribe, webhooks
 
 logger = get_logger("main")
 
@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(jobs.router)
     app.include_router(members.router)
+    app.include_router(unsubscribe.router)
     app.include_router(webhooks.router)
     return app
 

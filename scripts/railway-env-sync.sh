@@ -19,6 +19,7 @@ railway variables --service app --skip-deploys \
   --set "NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET" \
   --set "BRAVE_SEARCH_API_KEY=$BRAVE_SEARCH_API_KEY" \
   --set "RESEND_WEBHOOK_SECRET=$RESEND_WEBHOOK_SECRET" \
+  --set "PUBLIC_BASE_URL=https://app-production-945c.up.railway.app" \
   > /dev/null
 
 count=$(grep -c '^  --set "' "$0")
