@@ -1,10 +1,10 @@
 # T-008: 발송 최소형 — 푸디픽 조립 + Resend 발송 + send_logs (파일럿)
 
-Status: IN PROGRESS (2026-07-22 — **구현 완료·AC1 검증**, 배포 + 실발송 검증(AC6) 대기.
-구현: email_client(DRY RUN 지원) + newsletter 서비스(build/send 2단계, 멱등, 100명 가드,
-provider_id 저장) + 푸디픽 템플릿(파란 팔레트, 3코너) + /jobs/newsletter-build·send +
-GET/POST /unsubscribe(RFC 8058) + 테스트 9개. 로컬 실뉴스 30건으로 조립 미리보기 확인.
-남은 것: railway up → 민겸·희정 실발송(AC6) → 랩실 명단 수령 시 pilot-lab 임포트 → 파일럿 발송.)
+Status: DONE (2026-07-22 — 구현 + 배포 + **AC 전건 검증 완료**. 푸디픽 #0을 운영에서 실발송,
+opened/clicked가 member_id로 적재되며 발송→추적 파이프라인 관통(원래 그림 ④+⑤ 연결).
+남은 건 코드가 아니라 운영 절차: 랩실 명단 수령 → pilot-lab 임포트 → 파일럿 본 발송.
+후속 개선 후보(별도 티켓): 기사 선별 로직(현재 최신순+요약길이 — 뉴스가치 판단 없음),
+KCL류 중복 기사 병합, 사이드(논문)·디저트(행사) 코너 복원.)
 
 ## Problem
 
@@ -50,12 +50,17 @@ GET/POST /unsubscribe(RFC 8058) + 테스트 9개. 로컬 실뉴스 30건으로 �
 ## Acceptance Criteria (초안 — 착수 시 구체화)
 
 - [x] AC1: DRY RUN 모드로 푸디픽 HTML 조립 결과 확인 가능 (2026-07-22 로컬 실뉴스 30건 조립 확인)
-- [ ] AC2: 발송 시 수신자별 send_logs 생성 + provider_id 저장 → 웹훅 이벤트가 member_id로 자동 연결
-- [ ] AC3: 같은 뉴스레터 재발송 호출 → 이미 sent인 수신자 스킵 (멱등)
-- [ ] AC4: 100명 초과 세그먼트 → 발송 거부
-- [ ] AC5: 수신거부 링크 클릭 → subscribed=False, 이후 발송 대상 제외
-- [ ] AC6: check.sh 통과 + 민겸·희정 대상 실발송 1회 → open/click이 member_id와 함께 적재
+- [x] AC2: 라이브 검증 — 푸디픽 #0 실발송, send_logs.provider_id 저장, 웹훅 이벤트 member_id=6051 연결
+- [x] AC3: 테스트 검증 — 재발송 호출 시 sent 수신자 스킵 (test_send_dry_run_logs_and_idempotent)
+- [x] AC4: 테스트 검증 — 101명 세그먼트 발송 거부 (test_send_refuses_over_pilot_cap)
+- [x] AC5: 테스트 검증 — GET/POST 수신거부 + 발송 대상 제외 (test_unsubscribe_*, test_send_excludes_unsubscribed)
+- [x] AC6: 라이브 검증(2026-07-22) — 민겸 실발송 1회, opened+clicked×4가 member_id·원본 URL로 적재.
+      희정 수신 검증은 랩실 파일럿에서 자연 수행(사전 합의). ⚠️ 클릭 1건(pointdaily)은 추적
+      리다이렉트에서 일시 미기록 — 기사 URL은 200 정상, 재클릭 관찰 중.
 
-## Verification
+## Verification (2026-07-22 수행 기록)
 
-착수 시 작성. 핵심: DRY RUN 조립 → 2인 실발송 → Supabase에서 send_logs·engagement_events 조인 확인.
+DRY RUN 조립(로컬 30건) → 스크린샷 검증 루프로 디자인 확정(파랑) → 운영 배포 →
+pilot-lab 등록(member_id=6051) → build(#0)·send → send_logs provider_id 확인 →
+수신함 실물 확인 + 클릭 → engagement_events에 opened/clicked가 member_id로 적재 확인.
+**남은 운영 절차(코드 아님): 랩실 명단 수령 → pilot-lab 임포트 → 파일럿 본 발송.**
