@@ -182,7 +182,8 @@ def classify_and_store(
     for start in range(0, len(new_items), BATCH_SIZE):
         batch = new_items[start : start + BATCH_SIZE]
         payload = [
-            {"id": start + i, "title": it["title"], "summary": (it.get("summary") or "")[:200]}
+            # 캐시가 주는 요약을 그대로 쓴다(수집 컷 300자와 일치). 200자였을 땐 Brave 28/40건이 잘렸음 (2026-07-21 실측)
+            {"id": start + i, "title": it["title"], "summary": (it.get("summary") or "")[:300]}
             for i, it in enumerate(batch)
         ]
         content = _call_openrouter(client, payload)
