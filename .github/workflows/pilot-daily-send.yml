@@ -1,0 +1,30 @@
+name: Pilot daily send
+
+# 매일 08:00 KST에 배포 앱의 파일럿 매일발송을 트리거한다 (T-011).
+# news-refresh(07:00 KST) 뒤라 그날 수집·분류된 news_items로 조립된다.
+# 조립→발송→통계 롤업은 앱이 백그라운드로 수행하므로 여기선 트리거 수락만 확인한다.
+# 발송 결과 확인은 GET /admin/status(현황판) 또는 Resend 대시보드.
+# 앱 URL은 시크릿 APP_URL, 인증은 시크릿 JOBS_TOKEN (news-refresh와 동일 시크릿 재사용).
+
+on:
+  schedule:
+    - cron: "0 23 * * *" # 23:00 UTC = 08:00 KST
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger pilot daily send
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          JOBS_TOKEN: ${{ secrets.JOBS_TOKEN }}
+        run: |
+          http_code=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "$APP_URL/jobs/pilot-daily-send" \
+            -H "Authorization: Bearer $JOBS_TOKEN")
+          echo "trigger HTTP $http_code"
+          cat /tmp/resp.json || true
+          if [ "$http_code" -ge 300 ]; then
+            exit 1
+          fi

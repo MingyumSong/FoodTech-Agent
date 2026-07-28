@@ -6,6 +6,7 @@ from app.db import get_session
 from app.lib.logger import get_logger
 from app.services.news import refresh_news_cache
 from app.services.newsletter import build_newsletter, send_newsletter
+from app.services.pilot_daily import run_pilot_daily
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 logger = get_logger("jobs")
@@ -77,3 +78,16 @@ def newsletter_send(
 
     background.add_task(send_newsletter, newsletter_id)  # 자체 세션으로 실행
     return {"job": "newsletter-send", "status": "accepted", "recipients": n}
+
+
+@router.post("/pilot-daily-send", dependencies=[Depends(require_jobs_token)])
+def pilot_daily_send(background: BackgroundTasks) -> dict[str, str]:
+    """파일럿 매일발송 (T-011) — 조립→발송→통계 롤업을 백그라운드로 넘기고 즉시 응답 (C4).
+
+    잡 본체는 서비스 함수(run_pilot_daily)가 자체 세션·클라이언트로 수행한다.
+    멱등: 같은 날 재호출 시 편을 재사용하고 이미 sent인 수신자는 스킵한다.
+    뉴스 부족 등으로 조립이 실패하면 백그라운드에서 로그로 신호(발송은 일어나지 않음).
+    """
+    logger.info("jobs/pilot-daily-send triggered")
+    background.add_task(run_pilot_daily)
+    return {"job": "pilot-daily-send", "status": "accepted"}
