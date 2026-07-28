@@ -8,7 +8,7 @@ import pytest
 from app.config import settings
 from app.lib.http import get_with_retry
 from app.services import news
-from app.services.news_sources import SEARCH_QUERIES
+from app.services.news_sources import DOMESTIC_EXTRA_QUERIES, SEARCH_QUERIES
 
 RSS_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel><title>feed</title>
@@ -173,10 +173,12 @@ def test_naver_parses_and_shares_queries(cache_path, monkeypatch):
     monkeypatch.setattr(settings, "naver_client_id", "id")
     monkeypatch.setattr(settings, "naver_client_secret", "secret")
     seen: list[tuple[str, str]] = []
+    seen_displays: set[str] = set()
 
     def handler(request):
         assert request.url.host == "openapi.naver.com"
         seen.append((request.url.params["query"], request.url.params["sort"]))
+        seen_displays.add(request.url.params["display"])
         return httpx.Response(
             200,
             json={
@@ -192,14 +194,17 @@ def test_naver_parses_and_shares_queries(cache_path, monkeypatch):
             },
         )
 
-    items = news.fetch_naver(client=make_client(handler))
+    items = news.fetch_naver(client=make_client(handler), sleep=lambda _s: None)
+    all_queries = [*SEARCH_QUERIES, *DOMESTIC_EXTRA_QUERIES]
     expected = [
         (q.ko, sort)
-        for q in SEARCH_QUERIES
+        for q in all_queries
         for sort in (("date", "sim") if q.naver_sim else ("date",))
     ]
-    assert seen == expected
-    assert sum(1 for _, sort in seen if sort == "sim") == 3  # 니치 3종만 병행
+    assert seen == expected  # 코어 + 국내 전용 확장 검색어를 순서대로 순회
+    sim_expected = sum(1 for q in all_queries if q.naver_sim)
+    assert sum(1 for _, sort in seen if sort == "sim") == sim_expected
+    assert seen_displays == {"100"}  # 쿼리당 최대(display=100)로 요청
     assert items[0]["title"] == "배양육 상용화 임박"  # HTML 태그 제거
     assert items[0]["url"] == "https://media.example.com/1"  # 언론사 원문 우선
     assert items[0]["published_at"].startswith("2026-07-13")
@@ -263,3 +268,17 @@ def test_health_too_few_items(cache_path):
     report = news.check_news_health()
     assert report["ok"] is False
     assert report["reason"] == "too_few_items"
+
+
+def test_cap_balanced_preserves_niche_categories():
+    """물량 많은 분야가 상위를 도배해도 라운드로빈 캡이 니치 분야를 보존한다 (항목 1)."""
+    items = (
+        [{"url": f"g{i}", "category": "일반", "published_at": ""} for i in range(50)]
+        + [{"url": "niche1", "category": "세포배양식품", "published_at": ""}]
+        + [{"url": f"s{i}", "category": "간편식", "published_at": ""} for i in range(30)]
+    )
+    out = news._cap_balanced(items, 12)
+    assert len(out) == 12
+    cats = {it["category"] for it in out}
+    assert "세포배양식품" in cats  # 1건뿐인 니치도 물량에 밀려나지 않음
+    assert cats == {"일반", "세포배양식품", "간편식"}

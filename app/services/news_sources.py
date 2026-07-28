@@ -18,7 +18,8 @@ class SearchQuery(NamedTuple):
 
 
 SEARCH_QUERIES: list[SearchQuery] = [
-    SearchQuery("일반", "푸드테크", "foodtech"),
+    # 노이즈 큰 검색어(총보유 1만+)는 최신순만으론 형태소 퍼지 매칭에 도배돼 sim 병행(07-28 실측)
+    SearchQuery("일반", "푸드테크", "foodtech", naver_sim=True),
     SearchQuery("세포배양식품", "배양육 OR 세포배양식품", "cultivated meat"),
     SearchQuery("식물기반식품", "대체육 OR 식물성 대체식품", "plant-based food"),
     SearchQuery("간편식", "간편식 OR 밀키트", "ready meal HMR"),
@@ -27,8 +28,26 @@ SEARCH_QUERIES: list[SearchQuery] = [
     SearchQuery("스마트유통", "식품 콜드체인 OR 식품 스마트유통", "food cold chain technology"),
     SearchQuery("커스터마이징", "맞춤형 식품 OR 개인맞춤 영양", "personalized nutrition"),
     SearchQuery("외식 푸드테크", "서빙로봇 OR 조리로봇", "restaurant robot automation"),
-    SearchQuery("업사이클링", "푸드 업사이클링", "food upcycling"),
+    SearchQuery("업사이클링", "푸드 업사이클링", "food upcycling", naver_sim=True),
     SearchQuery("친환경포장", "친환경 식품포장", "sustainable food packaging", naver_sim=True),
+]
+
+# 국내 전용 확장 검색어 — 네이버만 순회(en=""로 Brave/해외는 안 건드림). 국내 회원 위주라
+# 국내 커버리지를 최대화한다: 니치 도메인 동의어 + 일반 푸드테크 저변(2026-07-28 결정, 항목 1).
+DOMESTIC_EXTRA_QUERIES: list[SearchQuery] = [
+    SearchQuery("일반", "푸드테크 스타트업", "", naver_sim=True),
+    SearchQuery("일반", "농식품 벤처 투자", ""),
+    SearchQuery("일반", "정밀발효", ""),
+    SearchQuery("세포배양식품", "세포농업 OR 배양육 상용화", ""),
+    SearchQuery("식물기반식품", "비건 식품 OR 대체 단백질", ""),
+    SearchQuery("식물기반식품", "식물성 단백질", "", naver_sim=True),
+    SearchQuery("간편식", "가정간편식 HMR", ""),
+    SearchQuery("스마트유통", "신선식품 새벽배송 OR 식품 물류 자동화", ""),
+    SearchQuery("커스터마이징", "고령친화식품 OR 메디푸드", ""),
+    SearchQuery("외식 푸드테크", "무인 매장 로봇 OR 푸드테크 매장", "", naver_sim=True),
+    SearchQuery("친환경포장", "생분해 식품포장 OR 친환경 포장재", "", naver_sim=True),
+    SearchQuery("스마트제조", "식품 제조 자동화", "", naver_sim=True),
+    SearchQuery("식품프린팅", "3D 푸드프린팅", "", naver_sim=True),
 ]
 
 

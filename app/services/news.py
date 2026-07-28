@@ -25,6 +25,7 @@ from app.lib.http import get_with_retry
 from app.lib.logger import get_logger
 from app.services.news_sources import (
     BRAVE_SEARCH_API,
+    DOMESTIC_EXTRA_QUERIES,
     DOMESTIC_FEEDS,
     FILTER_KEYWORDS,
     GOOGLE_NEWS_RSS_EN,
@@ -36,7 +37,11 @@ from app.services.news_sources import (
 
 logger = get_logger("news")
 
-MAX_ITEMS_PER_REGION = 40
+# 국내 회원 위주라 국내를 훨씬 크게 담는다 (2026-07-28, 항목 1). 캡은 분류 전 적용됨.
+MAX_DOMESTIC = 120
+MAX_OVERSEAS = 40
+NAVER_DISPLAY = 100  # 네이버 API 최대(쿼리당). 실측: display=10 고유 84 → 100 고유 704
+NAVER_REQUEST_INTERVAL = 0.35  # 요청 폭주 시 429 → 쿼리 사이 대기
 BRAVE_REQUEST_INTERVAL = 1.1  # Brave 무료 플랜 rate limit(1 req/s) 준수
 
 
@@ -80,11 +85,18 @@ def _entry_to_item(
 # ---------------------------------------------------------------- fetchers
 
 
-def fetch_naver(client: httpx.Client | None = None) -> list[dict[str, Any]]:
-    """네이버 뉴스 API — 국내 1차. 쿼리별 실패는 로그만 남기고 계속한다."""
+def fetch_naver(
+    client: httpx.Client | None = None, sleep: Callable[[float], None] | None = None
+) -> list[dict[str, Any]]:
+    """네이버 뉴스 API — 국내 1차. 쿼리별 실패는 로그만 남기고 계속한다.
+
+    국내 회원 위주라 커버리지를 최대화: 코어(SEARCH_QUERIES) + 국내 전용 확장
+    (DOMESTIC_EXTRA_QUERIES)을 display=100으로. 요청이 많아 쿼리 사이 간격을 둔다(429 방지).
+    """
     if not (settings.naver_client_id and settings.naver_client_secret):
         logger.info("naver: no credentials, skipping")
         return []
+    wait = sleep or time.sleep
     headers = {
         "X-Naver-Client-Id": settings.naver_client_id,
         "X-Naver-Client-Secret": settings.naver_client_secret,
@@ -92,14 +104,16 @@ def fetch_naver(client: httpx.Client | None = None) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     requests = [
         (q, sort)
-        for q in SEARCH_QUERIES
+        for q in (*SEARCH_QUERIES, *DOMESTIC_EXTRA_QUERIES)
         for sort in (("date", "sim") if q.naver_sim else ("date",))
     ]
-    for q, sort in requests:
+    for idx, (q, sort) in enumerate(requests):
+        if idx:
+            wait(NAVER_REQUEST_INTERVAL)
         try:
             resp = get_with_retry(
                 NAVER_NEWS_API,
-                params={"query": q.ko, "display": 10, "sort": sort},
+                params={"query": q.ko, "display": NAVER_DISPLAY, "sort": sort},
                 headers=headers,
                 client=client,
             )
@@ -251,6 +265,27 @@ def _dedupe_and_sort(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return deduped
 
 
+def _cap_balanced(items: list[dict[str, Any]], cap: int) -> list[dict[str, Any]]:
+    """분야 균형 캡 — 검색어 카테고리별로 라운드로빈(각 분야 내 최신순)으로 cap까지.
+
+    단순 날짜순 캡은 물량 많은 분야(일반·간편식)가 상위를 도배해 니치 분야가 밀려난다.
+    라운드로빈으로 각 분야가 한 건씩 번갈아 뽑혀 니치 커버리지를 보존한다.
+    """
+    from collections import defaultdict, deque
+
+    buckets: dict[str, deque] = defaultdict(deque)
+    for it in _dedupe_and_sort(items):  # 분야 내 최신순 보장
+        buckets[it.get("category") or ""].append(it)
+    out: list[dict[str, Any]] = []
+    while len(out) < cap and any(buckets.values()):
+        for cat in list(buckets):
+            if buckets[cat]:
+                out.append(buckets[cat].popleft())
+                if len(out) >= cap:
+                    break
+    return out
+
+
 def refresh_news_cache(client: httpx.Client | None = None) -> dict[str, Any]:
     """국내·해외 각각 1차 소스 → 실패/0건 시 RSS 폴백. 결과를 캐시 파일에 원자적으로 기록."""
     if client is None:
@@ -275,8 +310,7 @@ def refresh_news_cache(client: httpx.Client | None = None) -> dict[str, Any]:
 
     # 같은 통신사발 기사가 양쪽 지역에 실릴 수 있어 지역별 정리 후 전역 중복제거 한 번 더
     items = _dedupe(
-        _dedupe_and_sort(domestic)[:MAX_ITEMS_PER_REGION]
-        + _dedupe_and_sort(overseas)[:MAX_ITEMS_PER_REGION]
+        _cap_balanced(domestic, MAX_DOMESTIC) + _dedupe_and_sort(overseas)[:MAX_OVERSEAS]
     )
     cache = {
         "updated_at": datetime.now(UTC).isoformat(),
