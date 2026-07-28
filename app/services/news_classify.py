@@ -49,29 +49,50 @@ CATEGORIES_KO = [*SLUG_BY_KO.keys(), DISCARD_LABEL]
 NON_NEWS_DOMAINS = {"wikipedia.org", "finance.yahoo.com"}
 
 # 판정 순서·예시는 희정 검수(docs/research/뉴스분류_검수완료.md) 오분류 패턴에서 도출.
-SYSTEM_PROMPT = f"""당신은 푸드테크 뉴스 분류기다. 각 항목을 아래 판정 순서에 따라
-정부 "푸드테크 10대 핵심분야" 중 정확히 하나로 분류하라.
+SYSTEM_PROMPT = f"""당신은 푸드테크 뉴스 분류기다. 각 기사를 정부 "푸드테크 10대 핵심분야"
+중 하나로 분류하되, '식품 산업의 기술·산업 뉴스'가 아니면 과감히 "해당없음"으로 버려라.
+기본값은 버리는 쪽이다 — 뉴스는 넉넉히 수집하므로, 조금이라도 애매하면 남기지 말고 버린다.
 
-판정 순서:
-1. 뉴스 기사가 아니면 "해당없음" — 백과사전 문서, 주가·시세 페이지, 포럼 질문글,
-   단순 제품·매장 소개 페이지, 퀴즈 정답·쿠폰·이벤트 안내.
-2. 푸드테크(식품 산업의 기술·산업 소식)와 무관하면 "해당없음" — 예: 식품과 무관한
-   의료·제약·바이오, 자동차·IT 기업, 기업 승계·지배구조·주가 일반, 지자체 행정·복지·축제
-   소식, 기술 요소 없는 레스토랑·맛집 소개.
-3. 관련이 있으면 기사의 "핵심 주제"가 속한 분야 하나로 분류한다. 회사의 부수 사업이나
-   지나가는 한 문장 언급은 분류 근거가 아니다.
-4. 푸드테크 관련이지만 핵심 주제가 10대 분야 어디에도 맞지 않으면 "일반" —
-   예: 스마트팜, 정밀발효, 투자·정책 일반, 협회·행사 소식, 업계 동향 모음, 식품 기업 일반 소식.
-5. 확신이 없을 때: 푸드테크 여부가 애매하면 "해당없음", 분야가 애매하면 "일반".
+[10대 핵심분야 — 정부 정의로 판단하라]
+- 세포배양식품: 세포를 배양해 만든 고기·식품. 배양액·지지체 신소재, 식감·풍미·대량배양 공정.
+- 식물기반식품: 식물성 대체육·대체식품. 분리/구조화 단백, 대체 지방·물성 구현 첨가원료.
+- 간편식: K-Food 간편식(밀키트·HMR)의 생산 자동화·포장 개선 기술.
+- 식품프린팅: 식품 3D프린팅 — 프린팅 적성·가공기술, 식품 잉크 소재. (의료·산업용 3D프린팅은 아님)
+- 스마트제조: 식품 '제조·공장'의 AI·로봇 협동, 제조공정 이물질 검출 푸드센서.
+- 스마트유통: 식품 '유통·물류'의 AI 품질판정, IoT 기반 콜드체인·유통 실시간 모니터링.
+- 커스터마이징: 개인 질환·유전정보 기반 맞춤 식이설계·관리식 개발.
+- 외식 푸드테크: 외식 '매장'의 서빙·조리 로봇, 수요예측 AI, 고객 맞춤 데이터.
+- 업사이클링: 농식품 '부산물' 재활용 — 성분 DB, 원료처리 공정, 용도 다양화.
+- 친환경포장: 식품 포장의 플라스틱 절감·재활용, PBAT/PLA/PHA 등 생분해 포장재.
 
-가장 흔한 오류: 제목·요약에 "3D프린팅", "스마트", "친환경", "로봇" 같은 단어가 보인다고
-그 분야로 분류하는 것. 단어가 아니라 **기사가 무엇에 관한 것인지**로 판단하라.
+[판정 순서]
+1. 뉴스 기사 자체가 아니면 → "해당없음": 백과사전·시세·포럼·쿠폰·퀴즈, 소비자 대상
+   'best/top/추천 N선'·리스트클·영양/식단 조언 등 독자 서비스성 글, 단순 제품·매장 소개.
+2. 식품 산업과 무관하거나 '핵심 대상이 식품임이 확실치 않으면' → "해당없음":
+   - 의료·제약·치과·바이오 (바이오·3D프린팅 기술이어도 대상이 식품이 아니면)
+   - 화장품·제약·식품 등 여러 분야 공용 범용기술 (식품 전용임이 분명해야 남김)
+   - 개별 기업 재무·M&A·펀드·투자유치·주가·실적·노사·지배구조 등 경영 일반
+   - 지자체·공공기관 행정·복지·지원사업·상생·CSR, 축제·전시·박람회·시상·창립기념 등 행사·협회 소식
+   - 학술 논문·저널 연구 요약, 기술 요소 없는 맛집·레스토랑 소개
+3. 위를 통과한 '식품 산업 뉴스'만 핵심 주제가 속한 10대 분야 하나로 분류한다.
+   단어("3D프린팅","스마트","친환경","로봇","업사이클링","배양","대체")가 아니라
+   **기사가 무엇에 관한 것인지**로 판단하라. 부수 사업·지나가는 한 문장 언급은 근거 아님.
+   ★ 분야 키워드가 제목에 박혀 있어도, 그 기사가 1·2번에 걸리면(소비자 추천글, 공공기관·지자체
+   사회공헌·상생·행사) 분야로 분류하지 말고 반드시 "해당없음"이다. 키워드보다 1·2번이 우선한다.
+4. 식품 산업 뉴스가 맞지만 10대 분야 어디에도 안 맞으면 → "일반" (예: 식품 제조·소재 기술
+   개발 일반, 정밀발효, 스마트팜). 단 2번의 버릴 것들은 "일반"이 아니라 "해당없음"이다.
+5. 조금이라도 애매하면 → "해당없음".
 
 예시 판정:
-- "○○제약, 신약 임상 3상 진입…3D 바이오프린팅 활용" → "해당없음" (의료 기사, 식품 아님)
-- "△△시, 전통시장 여름축제 개최…친환경 먹거리 부스 운영" → "해당없음" (지자체 행정 기사)
-- "□□푸드협회, 창립 기념 포럼 개최" → "일반" (푸드테크 관련이지만 행사 소식)
-- "◇◇식품, 라면 공장에 AI 품질검사 도입" → "스마트제조" (핵심 주제가 식품 제조 기술)
+- "○○제약, 신약 임상 3상…3D 바이오프린팅 활용" → 해당없음 (의료)
+- "도로공사, 김천 샤인머스캣 농가에 상생모델 제시" → 해당없음 (공공기관 CSR)
+- "농협은행장, 농식품 펀드 2030년까지 8000억" → 해당없음 (금융·펀드)
+- "△△시, 임산부 친환경농산물 지원사업 추진" → 해당없음 (지자체 복지)
+- "□□푸드테크협회, 창립 2주년 기념행사" → 해당없음 (행사·협회)
+- "최고의 식물성 단백질 공급원, 영양사가 추천" → 해당없음 (소비자 조언글)
+- "◇◇식품, 라면 공장에 AI 품질검사 도입" → 스마트제조
+- "휴밀, 농식품 부산물로 업사이클링 초코 출시" → 업사이클링
+- "3D 식품 프린팅 시장 2035년 180억 달러 전망" → 식품프린팅
 
 허용 카테고리 (이 목록의 문자열을 그대로 사용):
 {json.dumps(CATEGORIES_KO, ensure_ascii=False)}
@@ -86,12 +107,17 @@ def _is_non_news_url(url: str) -> bool:
     return any(host == d or host.endswith("." + d) for d in NON_NEWS_DOMAINS)
 
 
-def _call_openrouter(client: httpx.Client, batch: list[dict[str, Any]]) -> str:
-    """배치 1개 분류 호출 — 재시도 포함. 최종 실패는 예외 전파(호출부가 격리)."""
+def _call_openrouter(
+    client: httpx.Client, batch: list[dict[str, Any]], system: str = SYSTEM_PROMPT
+) -> str:
+    """배치 1개 LLM 호출 — 재시도 포함. 최종 실패는 예외 전파(호출부가 격리).
+
+    system을 바꿔 분류(SYSTEM_PROMPT)와 관련성 게이트(RELEVANCE_GATE_PROMPT)에 재사용한다.
+    """
     payload = {
         "model": settings.news_classify_model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system},
             {"role": "user", "content": json.dumps(batch, ensure_ascii=False)},
         ],
         "max_tokens": 8000,
@@ -124,6 +150,84 @@ def _parse_labels(text: str) -> dict[int, str]:
         if isinstance(row, dict) and row.get("category") in CATEGORIES_KO and "id" in row:
             labels[int(row["id"])] = row["category"]
     return labels
+
+
+# ---- 뉴스레터 조립 2차 관련성 게이트 (수집 분류보다 엄격) --------------------------------
+# 분류(SYSTEM_PROMPT)는 '어느 분야인가'를 정한다. 게이트는 '뉴스레터에 실을 만한 푸드테크
+# 산업 뉴스인가'를 더 높은 기준으로 재판정한다. 분류 v2가 놓치는 소비자 리스트클·영양 조언·
+# 식품 관련성 애매 케이스(2026-07-27 검수에서 확인)를 build 단계에서 결정적으로 차단.
+RELEVANCE_GATE_PROMPT = """당신은 푸드테크 산업 뉴스레터의 엄격한 게이트키퍼다.
+각 기사를 뉴스레터에 실을지(keep) 뺄지(drop) 판정하라.
+기본값은 drop이다. 아래 KEEP 조건을 '명백히' 충족할 때만 keep. 조금이라도 애매하면 drop.
+
+KEEP — 아래를 모두 충족할 때만:
+- 식품·푸드테크 '산업/기업/연구/제품/정책'을 다루는 뉴스 기사이고,
+- 대상이 명백히 '식품'이며(제목·요약에서 식품임이 분명), 핵심 주제가 푸드테크 기술·산업이다.
+
+DROP — 하나라도 해당하면:
+- 소비자 대상 리스트클·'best/top/추천 N선'·모음글·영양/식단 조언 등 독자 서비스성 콘텐츠
+  (주제가 식품·업사이클링·친환경이어도, 블로그/추천글 형식이면 산업 뉴스가 아니므로 drop)
+- 행사·축제·전시·문화행사 안내, 지자체 행정·복지·지원사업 소식
+- 의료·제약·치과·바이오 (3D프린팅·바이오 기술이어도 대상이 식품이 아니면 drop)
+- 기업 재무·M&A·실적·주가·노사·지배구조 등 일반 경영 뉴스
+- 백과사전·시세 페이지·포럼 질문·쿠폰·퀴즈, 기술 요소 없는 단순 제품/매장 소개
+- 대상 산업이 식품으로 '확정'되지 않는 범용 기술 기사 — 화장품·제약·식품 등 여러 분야에
+  적용될 수 있다고만 하면 drop (식품 전용임이 분명해야 keep)
+- 학술 논문·저널 연구 요약 (systematic review, "Optimization of ... Parameters",
+  Nature/Frontiers/Springer/MDPI 등 저널·연구소 게재물). 뉴스 기사가 아니면 drop.
+
+예시 판정:
+- "지구를 구하는 착한 스낵 BEST 10 | ○○매거진" → keep=false (소비자 추천 리스트클, 산업 뉴스 아님)
+- "액상 공정을 AI로 실시간 모니터링…화장품·제약·식품 등에 적용" → keep=false (식품 전용 아님)
+- "최고의 식물성 단백질 공급원, 영양사가 추천" → keep=false (독자 대상 식단 조언글)
+- "3D 식품 프린팅 시장 2035년 180억 달러 전망" → keep=true (식품 프린팅 산업 뉴스)
+- "○○식품, 라면 공장에 AI 품질검사 도입" → keep=true (식품 제조 기술 도입 뉴스)
+
+출력은 JSON 배열만. 각 항목에 reason(판정 근거 한 문장)을 먼저 쓰고 keep(true/false):
+[{"id": 0, "reason": "식품 3D프린팅 시장 전망 기사", "keep": true}, ...]"""
+
+
+def _parse_gate(text: str) -> dict[int, bool]:
+    match = re.search(r"\[.*\]", text, re.S)
+    if not match:
+        return {}
+    try:
+        rows = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return {}
+    out: dict[int, bool] = {}
+    for row in rows:
+        if isinstance(row, dict) and "id" in row and "keep" in row:
+            out[int(row["id"])] = bool(row["keep"])
+    return out
+
+
+def filter_foodtech_relevant(
+    items: list[dict[str, Any]], client: httpx.Client | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """뉴스레터 조립용 2차 게이트 — (통과, 탈락) 반환.
+
+    키 없거나 게이트 응답이 아예 비면 보수적으로 전량 통과(발송 자체를 막지 않음).
+    개별 항목에 keep=false가 명시되면 탈락시킨다(엄격한 프롬프트가 '애매하면 drop'을 책임).
+    """
+    if not settings.openrouter_api_key or not items:
+        return list(items), []
+    if client is None:
+        with httpx.Client() as own_client:
+            return filter_foodtech_relevant(items, own_client)
+    batch = [
+        {"id": i, "title": it.get("title") or "", "summary": (it.get("summary") or "")[:300]}
+        for i, it in enumerate(items)
+    ]
+    verdict = _parse_gate(_call_openrouter(client, batch, system=RELEVANCE_GATE_PROMPT))
+    if not verdict:  # 빈/깨진 응답 간헐 재현 대비 1회 재시도 (분류와 동일 방어)
+        verdict = _parse_gate(_call_openrouter(client, batch, system=RELEVANCE_GATE_PROMPT))
+    if not verdict:
+        return list(items), []  # 게이트 자체가 실패하면 원본 유지(빈 뉴스레터 방지)
+    kept, dropped = [], []
+    for i, it in enumerate(items):
+        (kept if verdict.get(i, True) else dropped).append(it)
+    return kept, dropped
 
 
 def _parse_published_at(raw: Any) -> datetime | None:

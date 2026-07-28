@@ -158,3 +158,39 @@ def test_slug_mapping_covers_ten_categories_plus_general():
     assert len(SLUG_BY_KO) == 11
     assert "해당없음" not in SLUG_BY_KO
     assert len(set(SLUG_BY_KO.values())) == 11
+
+
+def _fake_gate(keep_by_id: dict[int, bool]):
+    """_call_openrouter 대체 — 게이트 keep 판정 JSON을 돌려준다 (system kwarg 허용)."""
+
+    def fake(client, batch, system=None):
+        rows = [{"id": r["id"], "keep": keep_by_id.get(r["id"], True)} for r in batch]
+        return json.dumps(rows, ensure_ascii=False)
+
+    return fake
+
+
+def test_relevance_gate_drops_only_flagged(monkeypatch):
+    monkeypatch.setattr(news_classify, "_call_openrouter", _fake_gate({0: True, 1: False, 2: True}))
+    items = [
+        _item("u0", "식품 3D프린팅 시장"),
+        _item("u1", "추천 리스트클"),
+        _item("u2", "식품공장 AI"),
+    ]
+    kept, dropped = news_classify.filter_foodtech_relevant(items)  # client=None → 목이 가로챔
+    assert [it["url"] for it in kept] == ["u0", "u2"]
+    assert [it["url"] for it in dropped] == ["u1"]
+
+
+def test_relevance_gate_no_key_passes_all(monkeypatch):
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
+    items = [_item("u0"), _item("u1")]
+    assert news_classify.filter_foodtech_relevant(items) == (items, [])
+
+
+def test_relevance_gate_empty_response_passes_all(monkeypatch):
+    # 게이트 응답이 두 번 다 비면 보수적으로 전량 통과(빈 뉴스레터 방지)
+    monkeypatch.setattr(news_classify, "_call_openrouter", lambda c, b, system=None: "판정 없음")
+    items = [_item("u0"), _item("u1")]
+    kept, dropped = news_classify.filter_foodtech_relevant(items)  # client=None → 목이 가로챔
+    assert kept == items and dropped == []
