@@ -122,7 +122,7 @@ def _bar_rows(pairs: list[tuple[str, int]], total: int, label_map: dict[str, str
     return f'<table width="100%" cellpadding="0" cellspacing="2">{"".join(rows)}</table>'
 
 
-def render_status(stats: dict[str, Any]) -> str:
+def render_status(stats: dict[str, Any], nav: str = "") -> str:
     m = stats["members"]
     n = stats["news"]
     e = stats["engagement"]
@@ -153,6 +153,7 @@ def render_status(stats: dict[str, Any]) -> str:
     <div style="font-size:12.5px;color:{GRAY_SOFT};">읽기 전용 ·
       {stats["generated_at"].strftime("%Y-%m-%d %H:%M UTC")} 기준</div>
   </div>
+  {nav}
 
   {
         _card(

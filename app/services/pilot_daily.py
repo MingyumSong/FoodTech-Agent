@@ -290,3 +290,15 @@ def run_pilot_daily(
     result = {"newsletter_id": nl.id, **stats}
     logger.info(f"pilot daily send done: {result}")
     return result
+
+
+def send_reviewed(newsletter_id: int) -> dict[str, Any]:
+    """관리자 검토 화면의 [지금 발송]용 — 이미 조립된 편을 발송하고 통계를 롤업(자체 세션).
+
+    run_pilot_daily와 달리 재조립하지 않는다(검토한 그 편을 그대로 보낸다). 멱등: 이미 sent 스킵.
+    """
+    with Session(engine) as session, httpx.Client() as client:
+        stats = send_newsletter(newsletter_id, session=session, client=client)
+        refresh_pilot_stats(session)
+    logger.info(f"pilot reviewed send done: {stats}")
+    return stats
