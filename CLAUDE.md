@@ -115,7 +115,9 @@ newsletters + send_logs + engagement_events + news_items.
 12. **배포 PaaS = Railway 선정(2026-07-15).** 월 $5 Hobby, 슬립 없음(웹훅 수신·크론 호출 필수 조건)이 기준.
     ✅ 배포 완료(2026-07-18, T-005) — 프로젝트 foodtech-hub, **계정은 교수님(snupfm@gmail.com)**.
     비용 전망: 파일럿까지 월 $5 → 본 발송 후 월 ~$25(Resend Pro $20 포함) — 상세는 노션 cost 페이지.
-    트래킹 노션은 새 워크스페이스 "FoodTech-Agent"로 이전됨.
+    트래킹 노션은 새 워크스페이스 "FoodTech-Agent"로 이전됨. **주차 진행 현황(Done/To do)은
+    노션 `Project ▸ is on track` DB의 주차 페이지에 기록**(레포 docs 아님 — docs는 티켓·research용).
+    시크릿은 노션에 평문 저장·복제 금지.
 
 ---
 
