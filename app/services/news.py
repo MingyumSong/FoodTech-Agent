@@ -33,6 +33,7 @@ from app.services.news_sources import (
     OVERSEAS_FEEDS,
     SEARCH_QUERIES,
     RssFeed,
+    source_from_url,
 )
 
 logger = get_logger("news")
@@ -136,7 +137,8 @@ def fetch_naver(
                         "title": title,
                         "url": url,
                         "summary": _strip_html(entry.get("description", ""))[:300],
-                        "source": "",
+                        # 네이버 API는 매체명을 안 준다 — 원문 링크 호스트에서 되살린다 (T-018)
+                        "source": source_from_url(url),
                         "published_at": published,
                         "category": q.category,
                         "origin": "naver",
@@ -180,7 +182,8 @@ def fetch_brave(
                         "title": title,
                         "url": url,
                         "summary": _strip_html(entry.get("description", ""))[:300],
-                        "source": "",
+                        # Brave 응답도 매체명이 일정치 않다 — 호스트에서 되살린다 (T-018)
+                        "source": source_from_url(url),
                         "published_at": entry.get("page_age") or "",
                         "category": q.category,
                         "origin": "brave",

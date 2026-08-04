@@ -6,6 +6,7 @@
 """
 
 from typing import NamedTuple
+from urllib.parse import urlparse
 
 
 class SearchQuery(NamedTuple):
@@ -98,3 +99,110 @@ GOOGLE_NEWS_RSS_EN = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=U
 
 NAVER_NEWS_API = "https://openapi.naver.com/v1/search/news.json"
 BRAVE_SEARCH_API = "https://api.search.brave.com/res/v1/web/search"
+
+
+# ---------------------------------------------------------------- 매체명 (T-018)
+#
+# 네이버·Brave API 응답에는 매체명 필드가 없다 — 수집기가 "source": ""를 넣어왔고,
+# 그 결과 news_items 460건이 전부 출처 없이 쌓였다(2026-08-04 확인). 뉴스레터에도
+# "KR"로만 표시된다. URL 호스트에서 되살린다.
+#
+# **확실한 매체만 적는다.** 틀린 이름을 붙이는 건 도메인을 그대로 보여주는 것보다 나쁘다 —
+# 나머지는 도메인 폴백에 맡기고, 자주 등장하는 게 보이면 여기에 추가한다.
+SOURCE_BY_DOMAIN: dict[str, str] = {
+    # 종합·경제 일간
+    "chosun.com": "조선일보",
+    "biz.chosun.com": "조선비즈",
+    "donga.com": "동아일보",
+    "joongang.co.kr": "중앙일보",
+    "hani.co.kr": "한겨레",
+    "khan.co.kr": "경향신문",
+    "seoul.co.kr": "서울신문",
+    "kmib.co.kr": "국민일보",
+    "munhwa.com": "문화일보",
+    "segye.com": "세계일보",
+    "naeil.com": "내일신문",
+    "shinailbo.co.kr": "신아일보",
+    "hankookilbo.com": "한국일보",
+    "hankooki.com": "한국일보",
+    "daily.hankooki.com": "한국일보",
+    "hankyung.com": "한국경제",
+    "mk.co.kr": "매일경제",
+    "mt.co.kr": "머니투데이",
+    "sedaily.com": "서울경제",
+    "edaily.co.kr": "이데일리",
+    "fnnews.com": "파이낸셜뉴스",
+    "asiae.co.kr": "아시아경제",
+    "heraldcorp.com": "헤럴드경제",
+    "biz.heraldcorp.com": "헤럴드경제",
+    "dnews.co.kr": "대한경제",
+    "ekn.kr": "에너지경제",
+    "viva100.com": "브릿지경제",
+    "cstimes.com": "컨슈머타임스",
+    "breaknews.com": "브레이크뉴스",
+    # 통신·방송
+    "yna.co.kr": "연합뉴스",
+    "news1.kr": "뉴스1",
+    "newsis.com": "뉴시스",
+    "ytn.co.kr": "YTN",
+    "kbs.co.kr": "KBS",
+    "imbc.com": "MBC",
+    "sbs.co.kr": "SBS",
+    # IT·산업
+    "etnews.com": "전자신문",
+    "dt.co.kr": "디지털타임스",
+    "zdnet.co.kr": "ZDNet Korea",
+    "aving.net": "AVING",
+    "kr.aving.net": "AVING",
+    # 식품·농축수산 전문지
+    "foodnews.co.kr": "식품음료신문",
+    "thinkfood.co.kr": "식품외식경제",
+    "aflnews.co.kr": "농수축산신문",
+    "foodbank.co.kr": "월간식당",
+    # 공공
+    "kotra.or.kr": "KOTRA 해외시장뉴스",
+    "dream.kotra.or.kr": "KOTRA 해외시장뉴스",
+    # 해외
+    "reuters.com": "Reuters",
+    "bloomberg.com": "Bloomberg",
+    "foodnavigator.com": "FoodNavigator",
+    "fooddive.com": "Food Dive",
+    "agfundernews.com": "AgFunderNews",
+    "digitalfoodlab.com": "DigitalFoodLab",
+}
+
+# 호스트 앞에 붙어 매체를 바꾸지 않는 접두사 (biz.chosun.com은 조선비즈라 여기 없다 — 매핑 우선)
+_STRIP_PREFIXES = ("www.", "m.", "news.", "view.", "amp.")
+
+
+def source_from_url(url: str) -> str:
+    """URL 호스트에서 매체명을 되살린다. 모르는 곳이면 도메인을 그대로 돌려준다.
+
+    매핑은 전체 호스트 → 접두사 제거 → 상위 도메인 순으로 찾는다.
+    biz.chosun.com(조선비즈)과 chosun.com(조선일보)이 다른 매체라 전체 호스트가 먼저다.
+    """
+    if not url:
+        return ""
+    host = urlparse(url).netloc.lower().split(":")[0]
+    if not host:
+        return ""
+
+    if host in SOURCE_BY_DOMAIN:
+        return SOURCE_BY_DOMAIN[host]
+
+    stripped = host
+    for prefix in _STRIP_PREFIXES:
+        if stripped.startswith(prefix):
+            stripped = stripped[len(prefix) :]
+            break
+    if stripped in SOURCE_BY_DOMAIN:
+        return SOURCE_BY_DOMAIN[stripped]
+
+    # 서브도메인을 한 겹씩 벗겨가며 등록된 도메인을 찾는다 (news.abc.co.kr → abc.co.kr)
+    parts = stripped.split(".")
+    for i in range(1, len(parts) - 1):
+        candidate = ".".join(parts[i:])
+        if candidate in SOURCE_BY_DOMAIN:
+            return SOURCE_BY_DOMAIN[candidate]
+
+    return stripped  # 모르는 매체 — 빈칸보다 도메인이 낫다
