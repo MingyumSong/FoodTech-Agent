@@ -14,6 +14,7 @@ railway variables --service app --skip-deploys \
   --set "ADMIN_TOKEN=$ADMIN_TOKEN" \
   --set "APP_ENV=prod" \
   --set "RESEND_API_KEY=$RESEND_API_KEY" \
+  --set "NEWSLETTER_REPLY_TO=$NEWSLETTER_REPLY_TO" \
   --set "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" \
   --set "NAVER_CLIENT_ID=$NAVER_CLIENT_ID" \
   --set "NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET" \
