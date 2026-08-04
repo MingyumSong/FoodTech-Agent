@@ -37,11 +37,9 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 
 ## 참고 프로토타입 (`archive/foodtech-hub-deploy/` — 수정 금지)
 
-로직 참고 전용(복사 금지, route→service→model로 재작성). 뉴스 수집·CSV 임포트는 T-001/T-006/T-007로
-재구현 완료라 참고 가치 소멸. **아직 가져올 로직**: ① 캠페인 발송·수신거부 (`email_client.py` —
-키 없으면 DRY RUN, `send_logs`/`newsletters` 흐름) — 발송 티켓(T-008)에서,
-② 관리자 매직링크 로그인 15분 + 세션 30일 (`magic_links`/`admin_sessions`) — 관리자 페이지에
-쓰기 기능(발송 버튼 등) 붙일 때. 읽기 전용 현황판은 T-010으로 이미 배포됨(Basic 인증 임시).
+로직 참고 전용(복사 금지, route→service→model로 재작성). 수집·임포트·발송은 재구현 완료라 참고 가치 소멸.
+**아직 가져올 로직은 하나뿐**: 관리자 매직링크 로그인 15분 + 세션 30일
+(`magic_links`/`admin_sessions`) — 지금 관리자 화면은 Basic 인증 임시다.
 신규 스키마의 단일 진실은 Alembic 마이그레이션(Supabase 적용됨, 8테이블): members +
 member_programs + newsletters + send_logs + engagement_events + news_items + pilot_members + app_settings.
 
@@ -54,15 +52,13 @@ member_programs + newsletters + send_logs + engagement_events + news_items + pil
    같은 DB에 있어야 함. → **Supabase(Postgres) = 회원 + 발송 + 추적 단일 원본**, 관리 UI는 앱의
    `GET /admin/status`(T-010, 서버 렌더 HTML — admin.html은 프로토타입 잔재로 폐기),
    **구글시트는 직원 편집용으로 유지하고 주기적으로 임포트**(임포터가 해당 양식 이미 지원).
-   Supabase 계정은 희정 생성 → 민겸 팀멤버 초대 → 스키마 설계는 민겸.
-   ✅ 보안(2026-07-13): 전 테이블 RLS 활성화(T-002b) + Data API 비활성화 — PostgREST 경로 이중 차단.
+   ✅ 보안: 전 테이블 RLS 활성화(T-002b) + Data API 비활성화 — PostgREST 경로 이중 차단.
 
 2. **크롤링은 API/RSS 소스만.** HTML 스크래핑 제외.
    **뉴스 LLM 분류 체계 = 정부 "푸드테크 10대 핵심분야"** (희정 전달 PDF, 2026-07-12 수령):
    세포배양식품 / 식물기반식품 / 간편식 / 식품프린팅 / 스마트제조 / 스마트유통 /
    커스터마이징 / 외식 푸드테크 / 업사이클링 / 친환경포장.
-   - 추가 소스: 네이버 뉴스 API(국내 핵심), 언론사 RSS, 학술은 CrossRef/PubMed API.
-   - ✅ 안정성(결과 기반 폴백·재시도·헬스체크)은 T-001로 구현 완료.
+   ✅ 안정성(결과 기반 폴백·재시도·헬스체크)은 T-001로 구현 완료. 소스 목록은 결정 9.
 
 3. **추적은 Resend 웹훅이 1차 수단.** (2026-07-11) ✅ T-003 구현 완료 — `POST /webhooks/resend`(svix
    서명 검증) → `engagement_events` 멱등 적재, clicked url=원본 기사 URL(캐시 매칭). 상세는 티켓.
@@ -71,22 +67,25 @@ member_programs + newsletters + send_logs + engagement_events + news_items + pil
 4. **발송은 4주차에 파일럿으로 조기 시작.** 완벽하지 않아도 시작해서 5·6·7주차 실데이터 누적.
    그 데이터로 Activity Score 가중치를 확정한다.
    파일럿 세그먼트는 **100명 이하**(2026-07-15) — Resend 무료 티어(일 100통) 한도 내, 본 발송 전 Pro($20/월) 전환.
-   ✅ 2026-07-22: 발송 코드 완성(T-008)·푸디픽 #0 실발송·추적 관통 검증. **파일럿 대상 = 랩실**(교수님 결정,
-   이메일 명단 추후 수령 → `pilot-lab` 프로그램 임포트). 발송 시점은 7/23 싱크에서.
+   ✅ 파일럿 = 랩실 25명, 매일 13:00 발송 중 — 9회분 실데이터가 T-017 가중치의 근거가 됐다.
 
-5. **Activity Score = 행동별 가중합.** 열람 < 클릭 < 전달 순으로 가중치.
-   열람(open)은 Apple Mail/Gmail 프록시 때문에 신뢰도 낮음 → 보조 신호로만.
-   **정밀 지표가 아니라 상대적 순위 도구**로 취급한다.
+5. **Activity Score = 발송 대비 참여 비율** (✅ T-017 확정·배포). 열람 < 클릭 < 반응
+   ('전달'은 관측 불가라 원클릭 반응이 그 자리를 대신함). **편당 최고 행동 하나만** 값으로 매긴다
+   (열람1 / 클릭3 + URL 추가당 0.5 최대 +2 / 반응5) — 같은 편 재열람 22회가 점수를 못 올린다.
+   반감기 30일·창 120일·축소 K=3, 발송 후 10초 내 열람은 봇으로 제외. **합계가 아니라 비율이라
+   활동량으로 읽으면 안 된다** — 정밀 지표가 아닌 상대적 순위 도구. 등급은 절대 컷
+   `active≥30 / warm≥10 / dormant` + `unknown`(창 안 발송 0 — dormant와 구분) / `unsubscribed`,
+   백분위는 저장 없이 조회 시점 계산. **튜닝 상수는 `app/services/activity_score.py` 상단 한 곳.**
 
-6. **대시보드는 자체 개발 대신 기존 BI.** Airtable Interfaces로 시작, 필요 시 Metabase.
+6. ~~기존 BI(Airtable/Metabase)~~ → **폐기**: 관리 화면은 앱이 서버 렌더로 직접 제공
+   (`/admin/*` 5탭 — 현황·회원관리·인기분야·참여도·발송검토).
 
 7. **LLM 호출은 OpenRouter 게이트웨이.** (2026-07-11 노션 동기화) 계정·크레딧은 랩실(희정),
    키 하나로 Claude/GPT/Gemini 호출. OpenAI 호환 엔드포인트(`https://openrouter.ai/api/v1`).
    ✅ 키 수령(`.env`의 OPENROUTER_API_KEY), 잔액 $25, **키 한도 $25 설정 완료**(2026-07-12).
    ✅ **분류 모델 확정(2026-07-14, T-004 드라이런)**: `google/gemini-2.5-flash` 주력
    (실뉴스 80건 4모델 비교 — 일치율 1위·$0.0077/80건·16s, 월 비용 < $1.5 추정).
-   haiku-4.5는 스팟체크 보조, gpt-5-mini(지연)·flash-lite("해당없음" 미사용) 제외.
-   근거: `docs/research/llm-classification-dryrun.md`.
+   탈락 모델과 사유는 `docs/research/llm-classification-dryrun.md`.
    **분류 시점 = 수집 시 분류·저장**(2026-07-15) — 발송 직전 실시간 분류 금지, 분류 결과는 뉴스 캐시에 포함.
    노션 archive에 키 평문 있음 — 워크스페이스가 민겸·희정 2인 전용이라 **로테이션 불필요 판단**(2026-07-15, 민겸).
 
@@ -96,8 +95,8 @@ member_programs + newsletters + send_logs + engagement_events + news_items + pil
    관리자 페이지는 추후 `admin.foodtech-center.org`로 연결 예정(앱 배포 후 CNAME).
 
 9. **뉴스 수집 소스 확정(2026-07-13)** — 조사 결과·검증된 피드 URL은 `docs/research/news-sources.md`.
-   국내 1차 네이버 뉴스 API(키 발급 희정 대기) + 식품 전문지 RSS 4종 폴백, 해외 Brave 유지
-   (⚠️ **무료 티어 폐지** — 월 $5 크레딧, 카드 등록 필요) + 매체 RSS 4종, 학술 OpenAlex + 저널 RSS.
+   국내 1차 네이버 뉴스 API + 식품 전문지 RSS 4종 폴백, 해외 Brave(⚠️ **무료 티어 폐지** — 월 $5
+   크레딧, 카드 등록 필요) + 매체 RSS 4종, 학술 OpenAlex + 저널 RSS.
    카카오(뉴스 미지원)·빅카인즈(유료화) 제외. Google News RSS 링크는 인코딩 리다이렉트 URL이라
    클릭 추적 집계 시 디코딩 필요(T-003 설계 때 결정).
 
@@ -107,17 +106,14 @@ member_programs + newsletters + send_logs + engagement_events + news_items + pil
     현재 시안은 `docs/branding/newsletter-v2.html`(mockup.html은 v1 기록용).
 
 11. **와우 포인트 후보 4개 정리(2026-07-13, 간판 선정은 희정 논의 대기)** — 리서치는 `docs/research/wow-features.md`.
-    W1 원클릭 투표 / W2 AI 푸디 답장(Resend Inbound, 2025-11 출시 — **간판 제안**) /
-    W3 클릭 이력 기반 개인 큐레이션 / W4 매직링크 개인 리캡 페이지. AMP·CSS 인터랙티브는 배제 확정.
-    ⚠️ 파생 이슈: 디저트 코너(행사 CTA) 포함 호는 정보통신망법상 "(광고)" 표기 필요 가능 — 법무 확인,
-    Outlook Safe Links 봇 클릭은 T-003 추적 정확도 전체에 영향 — 웹훅 설계 때 방어 포함.
+    ✅W1 원클릭 반응(T-013으로 구현) / W2 AI 푸디 답장(Resend Inbound — **간판 제안**) /
+    W3 클릭 이력 기반 개인 큐레이션 / W4 매직링크 개인 리캡. AMP·CSS 인터랙티브는 배제 확정.
+    ⚠️ 행사 CTA를 넣는 호는 정보통신망법상 "(광고)" 표기 필요 가능 — 법무 확인 대상.
 
-12. **배포 PaaS = Railway 선정(2026-07-15).** 월 $5 Hobby, 슬립 없음(웹훅 수신·크론 호출 필수 조건)이 기준.
-    ✅ 배포 완료(2026-07-18, T-005) — 프로젝트 foodtech-hub, **계정은 교수님(snupfm@gmail.com)**.
-    비용 전망: 파일럿까지 월 $5 → 본 발송 후 월 ~$25(Resend Pro $20 포함) — 상세는 노션 cost 페이지.
-    트래킹 노션은 새 워크스페이스 "FoodTech-Agent"로 이전됨. **주차 진행 현황(Done/To do)은
-    노션 `Project ▸ is on track` DB의 주차 페이지에 기록**(레포 docs 아님 — docs는 티켓·research용).
-    시크릿은 노션에 평문 저장·복제 금지.
+12. **배포 PaaS = Railway**(월 $5 Hobby, 슬립 없음 — 웹훅 수신·크론 호출의 필수 조건).
+    비용 전망: 파일럿 월 $5 → 본 발송 후 월 ~$25(Resend Pro 포함) — 상세는 노션 cost 페이지.
+    **주차 진행 현황(Done/To do)은 노션 `Project ▸ is on track`의 주차 페이지에 기록**
+    (레포 docs 아님 — docs는 티켓·research용). 시크릿은 노션에 평문 저장·복제 금지.
 
 ---
 
@@ -145,14 +141,16 @@ T-010 현황판 / T-011 매일발송 / T-012 관리자 — **전부 DONE·배포
 - **DB**: `.env`의 `SUPABASE_URL`(비밀번호 포함 — 커밋 금지, 접두사 `postgresql+psycopg://`).
   운영 마이그레이션은 `DATABASE_URL="$SUPABASE_URL" uv run alembic upgrade head`.
   **코드보다 먼저 적용할 것** — 새 테이블을 읽는 코드가 먼저 뜨면 조회가 터진다.
-- **회원**: Supabase 3,413명(이메일 94%). 파일럿 `pilot-daily` 25명 = `pilot-lab-1`~`5` 각 5명
-  (**A/B 그룹으로 그대로 쓸 수 있다**).
+- **회원**: Supabase 3,413명(이메일 94%). 파일럿 `pilot-daily` 25명 = `pilot-lab-1`~`5` 각 5명.
+  A/B에 쓰되 **사전 참여도가 그룹마다 2배 이상 다르다**(평균 1조 24.6 / 4조 23.2 / 5조 17.4 /
+  3조 11.1 / 2조 10.6) → T-016 실험은 대조군을 그냥 고르지 말고 **짝을 맞출 것**.
 - **수집**: 네이버 `display` 100, 비대칭 캡(`MAX_DOMESTIC=120`/`MAX_OVERSEAS=40`), 분야 균형
   라운드로빈(`_cap_balanced`). 분류 프롬프트 v3(정부 공식 정의 삽입). **입력은 제목+요약 300자**
   (본문 스크래핑 안 함). 2차 게이트(`filter_foodtech_relevant`)는 발송 직전 LLM.
 - **추적**: 추적 도메인 `links.news.foodtech-center.org`(Resend 추적 기본 OFF라 필수였음).
   clicked url = 원본 기사 URL — 이게 T-016에서 깨질 전제다.
-- **`pilot_members`**(RLS): 25명 스냅샷+집계+Activity Score. `refresh_pilot_stats`가 발송 잡에서 롤업.
+- **`pilot_members`**(RLS): 25명 스냅샷+집계. 점수 컬럼은 `refresh_pilot_stats`(발송 잡)가 남기는
+  **이력 스냅샷일 뿐** — 참여도 탭(`/admin/scores`, T-019)은 저장값을 안 읽고 **조회 시점에 재계산**한다.
 
 **T-009 기사 큐레이션(TODO)** — 소스 신뢰도·분야 다양성·중복 병합. 근거가 계속 쌓이는 중:
 파일럿 #0의 쿠폰 기사 톱픽·지역지 모바일 불량, T-015의 튕김 절반, T-018에서 드러난
@@ -175,17 +173,20 @@ T-010 현황판 / T-011 매일발송 / T-012 관리자 — **전부 DONE·배포
 - ✅ **T-015 체류 근사** — 원문 체류는 측정 불가(남의 서버). **같은 편 안의 연속 클릭 간격**으로 근사
   (`dwell.py`, 30분 상한, 편별 마지막 클릭 제외). 인기분야 탭에 "읽은 깊이" 카드.
   운영 실측: 측정가능 47%, 중앙값 13초, **튕김 24 : 중간 23 : 정독 16** — 절반이 제목만 보고 닫는다(T-009 근거).
-- ✅ **T-017 Activity Score** — 열람<클릭<반응 가중합 + 감쇠·축소·봇 제외. (별도 세션 작업물)
+- ✅ **T-017 Activity Score + T-019 참여도 탭**(e6468d0·cc68578, 둘 다 배포) — 파일럿 25명 실측
+  **활발 6 / 관심 9 / 잠잠 10**, 중위 14.6. **봇 열람(발송 후 10초) 필터가 실제로 물었다** — 9편 전부
+  즉시 열람이던 1명이 warm→dormant로 뒤집혔다(원시 집계로는 '전편 열람' 우수 회원).
 - ✅ **T-018 매체명** — `news_items` 460건 전부 `source`가 비어 있었다. 버그가 아니라 처음부터
   `fetch_naver`/`fetch_brave`가 `""`를 넣었고 RSS만 채웠는데 그게 폴백으로 밀린 탓. URL 호스트에서
   복원(`SOURCE_BY_DOMAIN` 55곳 + **도메인 폴백** — 모르면 지어내지 않는다). 460건 백필 완료.
 - **T-016 착지 페이지 = 유일한 미착수.** 시안·A/B 설계 확정, 선결 질문 4개 중 3개 해결(티켓 참조).
-  **미해결 = 이탈 비용** — `pilot-lab-1,2`(10명)만 착지 경유, 15명 직행으로 2주 A/B 하면 답이 나온다.
+  **미해결 = 이탈 비용** — 2주 A/B로 답이 나온다. 단 조 단위 배정은 금물(위 참여도 격차) — **점수
+  순위로 5블록×5명 층화 배정 + 회원별 사전/사후 변화로 판정**, 기준선은 실험 시작 전 동결.
   까다로운 곳: 기사 링크를 수신자별로 바꿔야 하고(T-013의 "원본 URL 변형 금지"를 의도적으로 깸),
   그러면 T-003 매칭이 `engagement.py`·`pilot_daily.py`·`admin_pages.py` 3곳에서 2경로를 지원해야 한다.
 
-**알아둘 것**: `/health/news`는 디스크 JSON 캐시를 본다 → **배포마다 빨간불**, 07:00 크론이 복구.
-발송 조립은 DB(`news_items`)를 읽으므로 영향 없다 — 체크와 실제가 다른 걸 보는 상태.
+**알아둘 것**: `/health/news`는 디스크 JSON 캐시를 봐서 **배포마다 빨간불**(07:00 크론이 복구, 발송은
+DB를 읽으므로 무관). **도구**: `scripts/dbq.sh {prod|local} "SQL"`(읽기 전용 강제)·`scripts/shot.sh`.
 
 ---
 
@@ -195,6 +196,5 @@ T-010 현황판 / T-011 매일발송 / T-012 관리자 — **전부 DONE·배포
 docker compose up -d postgres          # 로컬 DB 기동
 uv run alembic upgrade head            # 스키마 적용
 uv run uvicorn app.main:app --reload   # 서버 → http://localhost:8000 (/docs = API 문서)
-uv run python scripts/seed.py          # 개발 시드 데이터
 bash scripts/check.sh                  # 린트 + 타입체크 + 테스트 일괄 (CI와 동일 — 이것만 돌리면 된다)
 ```
