@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # 발송 (T-008) — 키 없으면 DRY RUN (실발송 없이 send_logs만 기록)
     resend_api_key: str = ""
     newsletter_from: str = "푸디 by 푸드테크센터 <foodie@news.foodtech-center.org>"  # 결정 10
+    # 답장 수신 주소 (T-013). 발신 도메인엔 MX가 없어 답장이 반송되므로 실제 수신함을 지정한다.
+    # 비우면 헤더를 생략 — 그 경우 답장은 어디에도 도달하지 않는다(푸터 문구도 함께 손볼 것).
+    newsletter_reply_to: str = ""
     # 수신거부 링크 등 이메일 속 절대 URL의 베이스 (운영: Railway 도메인, CNAME 후 교체)
     public_base_url: str = "http://localhost:8000"
 

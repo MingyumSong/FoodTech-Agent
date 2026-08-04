@@ -39,6 +39,9 @@ def send_email(
         "subject": subject,
         "html": html,
     }
+    # 발신 도메인엔 수신함(MX)이 없다 — reply_to가 없으면 수신자의 답장은 반송된다 (T-013).
+    if settings.newsletter_reply_to:
+        payload["reply_to"] = settings.newsletter_reply_to
     if headers:
         payload["headers"] = headers
 
