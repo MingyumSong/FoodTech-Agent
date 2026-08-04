@@ -133,54 +133,60 @@ newsletters + send_logs + engagement_events + news_items.
 - 대화에서 계획이 확정되면 그 자리에서 티켓 파일로 저장한다 (티켓 = 합의된 계획의 저장본,
   다음 세션으로의 핸드오프 문서).
 
-## 추천 다음 작업 (우선순위 순)
+## 완료된 기반 (상세는 각 티켓 — 여기선 계속 쓰이는 사실만)
 
-- ~~[보안 P0] GitHub 레포 private 전환~~ ✅ 2026-07-18 완료.
-  (OpenRouter 키 로테이션은 취소 — 노션이 2인 전용 워크스페이스라 노출 아님, 결정 7 참고.)
+T-001·T-006 수집·분류 / T-002 스키마 / T-003 웹훅 / T-005 배포 / T-007 임포터 / T-008 발송 /
+T-010 현황판 / T-011 매일발송 / T-012 관리자 — **전부 DONE·배포·라이브 검증 완료.**
 
-1. ~~T-001 뉴스 수집 + T-006 분류·DB 이관~~ ✅ 2026-07-21 **배포·라이브 검증 완료** —
-   수집 → LLM 분류(gemini-2.5-flash, 신규 URL만) → `news_items` 저장(슬러그 11종 = 정부 10대 + general).
-   희정 검수 반영: 프롬프트 v2(판정 5단계+reason 강제) + 위키·야후 도메인 차단 + 니치 검색어 3종
-   naver sim 병행. 평가 도구·근거: `docs/research/prompt-eval-2026-07-21.md`(검수 코퍼스로 재채점 가능).
-   학술(OpenAlex)은 별도 티켓.
-2. ~~T-003 Resend 웹훅~~ ✅ 2026-07-18 완료 — `POST /webhooks/resend`(svix 서명 검증) →
-   `engagement_events` 멱등 적재. 라이브 검증: opened/clicked 실적재, clicked url=원본 기사 URL.
-   추적 도메인 `links.news.foodtech-center.org`(Resend 추적 기본 OFF라 필수였음). 설계 결정 3건은 티켓 참조.
-3. ~~Supabase 프로젝트 연결~~ ✅ 2026-07-12 완료 — T-002 스키마 5테이블 적용됨(리비전 59dda42e7213).
-   접속 문자열은 `.env`의 `SUPABASE_URL`(비밀번호 포함 — 커밋 금지, 접두사 `postgresql+psycopg://` 필요).
-4. ~~앱 배포~~ ✅ 2026-07-18 **Railway 배포 완료**(T-005) — `https://app-production-945c.up.railway.app`,
-   프로젝트 foodtech-hub(교수님 계정 snupfm@gmail.com)/서비스 app. 배포는 `railway up`, 환경변수 동기화는
-   `scripts/railway-env-sync.sh`. `/api/members`는 ADMIN_TOKEN 잠금(매직링크 전까지). 잔여: CNAME(AC10).
-5. ~~회원 임포터(T-007)~~ ✅ 2026-07-18 — CSV/XLSX 업서트(멱등·동명이인 보호)·dry_run·API+CLI.
-   **실명단 임포트 완료: Supabase 3,413명**(이메일 94%, 협의회 시트 — 워크북 시트 19장이라 원본 확정은
-   희정 논의, 시트→엑셀 재다운로드 후 재임포트가 운영 루틴). 구글시트 API 직접 연동은 후속 티켓.
-6. ~~발송 최소형(T-008)~~ ✅ 2026-07-22 — email_client(DRY RUN)/newsletter build·send(멱등·100명 가드·
-   provider_id 저장)/푸디픽 템플릿(파랑, 스크린샷 검수)/수신거부(RFC 8058). 운영 실발송(#0) →
-   opened/clicked가 member_id로 적재 확인. 잔여는 운영 절차: 랩실 명단 수령 → pilot-lab 임포트 → 본 파일럿.
-7. ~~파이프라인 현황판(T-010)~~ ✅ 2026-07-22 — `GET /admin/status`(Basic=admin/ADMIN_TOKEN, 읽기 전용,
-   PII 없음) 배포됨. 싱크 데모용. 조작 버튼은 매직링크 티켓에서.
-8. **T-009 기사 큐레이션(TODO)** — 소스 신뢰도·분야 다양성·중복 병합·모바일 스크린샷 검수.
-   파일럿 #0 관찰(쿠폰 기사 톱픽, 지역지 모바일 불량)에서 도출.
+계속 유효한 사실만 추림:
 
-## 2026-07-28~29 세션 진행 (파일럿 품질 라운드 + 자동화·관리자)
+- **배포**: `https://app-production-945c.up.railway.app`, 프로젝트 foodtech-hub / 서비스 app
+  (교수님 계정 snupfm@gmail.com). `railway up`으로 배포, 환경변수는 `scripts/railway-env-sync.sh`.
+- **DB**: `.env`의 `SUPABASE_URL`(비밀번호 포함 — 커밋 금지, 접두사 `postgresql+psycopg://`).
+  운영 마이그레이션은 `DATABASE_URL="$SUPABASE_URL" uv run alembic upgrade head`.
+  **코드보다 먼저 적용할 것** — 새 테이블을 읽는 코드가 먼저 뜨면 조회가 터진다.
+- **회원**: Supabase 3,413명(이메일 94%). 파일럿 `pilot-daily` 25명 = `pilot-lab-1`~`5` 각 5명
+  (**A/B 그룹으로 그대로 쓸 수 있다**).
+- **수집**: 네이버 `display` 100, 비대칭 캡(`MAX_DOMESTIC=120`/`MAX_OVERSEAS=40`), 분야 균형
+  라운드로빈(`_cap_balanced`). 분류 프롬프트 v3(정부 공식 정의 삽입). **입력은 제목+요약 300자**
+  (본문 스크래핑 안 함). 2차 게이트(`filter_foodtech_relevant`)는 발송 직전 LLM.
+- **추적**: 추적 도메인 `links.news.foodtech-center.org`(Resend 추적 기본 OFF라 필수였음).
+  clicked url = 원본 기사 URL — 이게 T-016에서 깨질 전제다.
+- **`pilot_members`**(RLS): 25명 스냅샷+집계+Activity Score. `refresh_pilot_stats`가 발송 잡에서 롤업.
 
-- **[항목 1] 국내 수집 대폭 확대** (`news.py`·`news_sources.py`, 커밋됨·**미배포**): 네이버 `display` 10→100,
-  국내 전용 확장 검색어(`DOMESTIC_EXTRA_QUERIES`, `en=""`로 Brave 미영향), 노이즈 큰 검색어 sim 병행 확대,
-  비대칭 캡(`MAX_DOMESTIC=120`/`MAX_OVERSEAS=40`), **분야 균형 라운드로빈 캡**(`_cap_balanced`, 니치 보존),
-  요청 간격 0.35s. 실측 국내 84→2,357건. ✅ **2026-07-29 배포** — 크론이 확대 수집·v3로 돎.
-- **[항목 2] 분류 프롬프트 v3** (`news_classify.py`, ✅배포): 10대 분야 **정부 공식 정의 삽입**
-  (`data/푸드테크_10대분야.pdf`) + "기본값 해당없음" 필터 + 키워드 함정 차단. 재채점 16/16, 캐시 80건
-  폐기 43% 전건 정확. **입력은 제목+요약 300자**(본문 스크래핑 안 함 — 파일럿 확정, 결정 2).
-- **2차 관련성 게이트**(`filter_foodtech_relevant`) = 발송 직전 LLM. ✅ **앱 발송 경로 배선됨**
-  (T-011 `build_pilot_daily`가 게이트 통과분으로 조립). 1차(수집)+2차(발송) 둘 다 씀.
-- **pilot_members 테이블**(RLS) — 랩실 25명 스냅샷+집계+Activity Score 컬럼. `refresh_pilot_stats`는
-  T-011 발송 잡이 자동 롤업. **파일럿 #906**(전원 동일·3:2+게이트) 25명 실발송·추적 관통.
-- ✅ **T-011 파일럿 매일발송 자동화**(2026-07-29 배포) — `/jobs/pilot-daily-send`(C4·멱등) +
-  `pilot_daily.py`(전원 동일·일별 분야 회전·게이트·refresh_pilot_stats) + 크론 **매일 13:00 KST**(교수님 지정).
-- ✅ **T-012 관리자 페이지**(2026-07-29 배포, Basic) — 탭 회원관리(직접입력/삭제·프로그램·구분 필터,
-  PII는 인증 뒤)·인기분야(7일 클릭 집계)·발송검토(미리보기+수동 발송). `/admin/{members,popular,review}`.
-- **남은 로드맵**: **Activity Score 로직**(열람<클릭<전달, 결정 5) → **관리자 탭 3 세그먼트 스코어
-  대시보드** → **뉴스레터 디자인(Canva)**. 다음 세션 = Activity Score부터.
+**T-009 기사 큐레이션(TODO)** — 소스 신뢰도·분야 다양성·중복 병합. 근거가 계속 쌓이는 중:
+파일럿 #0의 쿠폰 기사 톱픽·지역지 모바일 불량, T-015의 튕김 절반, T-018에서 드러난
+비뉴스 수집(`frontiersin.org`·`bentosushi.com`).
+
+## 2026-08-04 세션 (파일럿 수신자 피드백 반영 — 전부 배포됨)
+
+메일을 받아본 분들의 실제 피드백 6건에서 출발. 티켓 T-013~T-018로 배정.
+
+- ✅ **T-013 뉴스레터 v2** — 아뮤즈부슈+에피3+메인2 → **에피2 + 메인3 + 디저트**(큐레이션 표준과 일치),
+  **국내4:해외1**(해외는 메인에), 아뮤즈 자리에 "오늘의 분야" 줄. 디저트 = **원클릭 반응 3버튼**:
+  `engagement_events`(`event_type="reacted"` + payload)라 스키마 변경 없고 (회원,편) 멱등이라 1행으로 수렴,
+  토큰은 `member.unsubscribe_token` 재사용. 폭 600px → `max-width`(390px 잘림 해소). 시각 언어 = B안.
+  헤더 아이콘 `app/static/foodie-icon.png`(네이비 `#042A4F`는 에셋 샘플값 — 변경 금지).
+  **답장 버그도 함께 수정**: 발신 도메인에 MX가 없고 `reply_to`도 없어 푸터의 "답장하면 읽습니다"가
+  거짓이었다 → `newsletter_reply_to`(운영값 = 교수님 지메일). **잔여: 실제 메일에서 답장 도달 확인.**
+- ✅ **T-014 관리자 발송 설정** — `app_settings`(key/value JSONB, RLS) + 발송검토 탭 폼에서
+  꼭지 수·국내외 비율·기간을 배포 없이 조정. **행이 없으면 코드 기본값**(마이그레이션 직후에도 발송 유지).
+  수신자 상한 100은 일부러 설정에서 제외(결정 4 안전장치).
+- ✅ **T-015 체류 근사** — 원문 체류는 측정 불가(남의 서버). **같은 편 안의 연속 클릭 간격**으로 근사
+  (`dwell.py`, 30분 상한, 편별 마지막 클릭 제외). 인기분야 탭에 "읽은 깊이" 카드.
+  운영 실측: 측정가능 47%, 중앙값 13초, **튕김 24 : 중간 23 : 정독 16** — 절반이 제목만 보고 닫는다(T-009 근거).
+- ✅ **T-017 Activity Score** — 열람<클릭<반응 가중합 + 감쇠·축소·봇 제외. (별도 세션 작업물)
+- ✅ **T-018 매체명** — `news_items` 460건 전부 `source`가 비어 있었다. 버그가 아니라 처음부터
+  `fetch_naver`/`fetch_brave`가 `""`를 넣었고 RSS만 채웠는데 그게 폴백으로 밀린 탓. URL 호스트에서
+  복원(`SOURCE_BY_DOMAIN` 55곳 + **도메인 폴백** — 모르면 지어내지 않는다). 460건 백필 완료.
+- **T-016 착지 페이지 = 유일한 미착수.** 시안·A/B 설계 확정, 선결 질문 4개 중 3개 해결
+  (저작권 OK / 매칭은 오히려 단단해짐 / heartbeat 대신 sendBeacon 1건). **미해결 = 이탈 비용** —
+  `pilot-lab-1,2`(10명)만 착지 경유하고 15명 직행으로 2주 A/B 하면 답이 나온다.
+  까다로운 곳: 기사 링크를 수신자별로 바꿔야 하고(T-013의 "원본 URL 변형 금지"를 의도적으로 깸),
+  그러면 T-003 매칭이 `engagement.py`·`pilot_daily.py`·`admin_pages.py` 3곳에서 2경로를 지원해야 한다.
+
+**알아둘 것**: `/health/news`는 디스크 JSON 캐시를 본다 → **배포할 때마다 빨간불**이 뜨고 07:00 크론이
+복구한다. 발송 조립은 캐시가 아니라 DB(`news_items`)를 읽으므로 영향 없다. 체크와 실제가 다른 걸 보는 상태.
 
 ---
 
