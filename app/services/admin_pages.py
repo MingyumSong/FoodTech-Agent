@@ -17,7 +17,15 @@ from app.models.member import Member
 from app.models.member_program import MemberProgram
 from app.models.news_item import NewsItem
 from app.models.newsletter import Newsletter
+from app.models.pilot_member import PilotMember
 from app.models.send_log import SendLog
+from app.services.activity_score import (
+    ACTIVE_CUT,
+    BOT_OPEN_SECONDS,
+    HALF_LIFE_DAYS,
+    percentile_ranks,
+    score_members,
+)
 from app.services.admin_status import (
     ACCENT,
     BG,
@@ -45,6 +53,7 @@ _TABS = [
     ("/admin/status", "현황"),
     ("/admin/members", "회원 관리"),
     ("/admin/popular", "인기 분야"),
+    ("/admin/scores", "참여도"),
     ("/admin/review", "발송 검토"),
 ]
 
@@ -344,7 +353,234 @@ def render_popular_page(data: dict[str, Any]) -> str:
     return _shell("/admin/popular", inner)
 
 
-# ------------------------------------------------------------------ 탭 4: 발송 검토
+# ------------------------------------------------------------------ 탭 4: 참여도 (T-019)
+
+TIER_LABELS_KO = {
+    "active": "활발",
+    "warm": "관심",
+    "dormant": "잠잠",
+    "unknown": "판단 보류",
+    "unsubscribed": "수신거부",
+}
+TIER_ORDER = ["active", "warm", "dormant", "unknown", "unsubscribed"]
+# 등급 칩 색: 활발=초록, 관심=주황(파일럿 배너와 같은 계열), 잠잠·보류=회색, 수신거부=빨강
+TIER_CHIP = {
+    "active": ("#E8F5E9", "#1B7F3B"),
+    "warm": ("#FFF7E6", "#8A6D1B"),
+    "dormant": ("#F1F3F5", "#5B6470"),
+    "unknown": ("#F8F9FA", "#9AA3AD"),
+    "unsubscribed": ("#FDECEA", "#B42318"),
+}
+
+
+def _avg(values: list[float]) -> float:
+    return round(sum(values) / len(values), 1) if values else 0.0
+
+
+def _median(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    s = sorted(values)
+    mid = len(s) // 2
+    return round(s[mid] if len(s) % 2 else (s[mid - 1] + s[mid]) / 2, 1)
+
+
+def _segment(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
+    """한 축(그룹/소속/프로그램)으로 묶어 평균·인원·활발 수를 낸다.
+
+    표본이 4~21명으로 작다 — 평균만 보면 오독하므로 인원 수를 늘 함께 낸다.
+    """
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for r in rows:
+        label = str(r[key]) if r[key] not in (None, "") else "미분류"
+        buckets.setdefault(label, []).append(r)
+    out = [
+        {
+            "label": label,
+            "n": len(members),
+            "avg": _avg([m["score"] for m in members]),
+            "active": sum(1 for m in members if m["tier"] == "active"),
+        }
+        for label, members in buckets.items()
+    ]
+    return sorted(out, key=lambda b: -b["avg"])
+
+
+def collect_scores(session: Session) -> dict[str, Any]:
+    """파일럿 회원의 참여 점수를 **조회 시점에 계산**한다 (T-019).
+
+    `pilot_members`의 저장 점수를 읽지 않는 이유: 그 값은 발송 잡이 돌 때만 갱신돼서
+    크론이 아직 안 돈 구간에는 전원 0으로 보인다. 25명 기준 배치 쿼리 3회라 매번 계산이 싸다.
+    저장 컬럼은 이력 스냅샷으로 남겨둔다.
+    """
+    pilots = list(session.exec(select(PilotMember).order_by(col(PilotMember.member_id))).all())
+    scores = score_members(session, [p.member_id for p in pilots])
+    pct = percentile_ranks({mid: r.score for mid, r in scores.items()})
+
+    rows: list[dict[str, Any]] = []
+    for p in pilots:
+        r = scores.get(p.member_id)
+        if r is None:
+            continue
+        rows.append(
+            {
+                "name": p.name,
+                "score": r.score,
+                "percentile": pct.get(p.member_id, 0),
+                "tier": r.tier,
+                "sends": r.window_sends,
+                "engaged": r.engaged_sends,
+                "clicked": r.clicked_sends,
+                "last": r.last_engaged_at,
+                "group": f"{p.group_no}조" if p.group_no else None,
+                "org_type": p.org_type,
+                "program": p.program,
+            }
+        )
+    rows.sort(key=lambda r: -r["score"])
+    values = [r["score"] for r in rows]
+    return {
+        "rows": rows,
+        "total": len(rows),
+        "avg": _avg(values),
+        "median": _median(values),
+        "tiers": [(t, sum(1 for r in rows if r["tier"] == t)) for t in TIER_ORDER],
+        "segments": [
+            ("발송 그룹", _segment(rows, "group")),
+            ("소속 유형", _segment(rows, "org_type")),
+            ("프로그램", _segment(rows, "program")),
+        ],
+    }
+
+
+def _tier_chip(tier: str) -> str:
+    bg, fg = TIER_CHIP.get(tier, TIER_CHIP["unknown"])
+    return (
+        f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:20px;'
+        f'font-size:11.5px;font-weight:700;white-space:nowrap;">'
+        f"{TIER_LABELS_KO.get(tier, tier)}</span>"
+    )
+
+
+def _segment_block(title: str, buckets: list[dict[str, Any]], top: float) -> str:
+    """한 축의 막대 묶음. `top`은 **세 축이 공유하는 스케일** — 축마다 자기 최대에 맞추면
+    막대 길이가 축을 넘어 비교되지 않는다(그룹 24.6과 프로그램 17.6이 둘 다 꽉 찬 막대가 됨).
+    """
+    rows = "".join(
+        f'<tr><td style="font-size:12.5px;color:{GRAY};padding:3px 10px 3px 0;'
+        f'white-space:nowrap;">{_esc(b["label"])}</td>'
+        f'<td style="width:100%;"><div style="background:#EEF3F8;border-radius:4px;">'
+        f'<div style="background:{ACCENT};height:8px;border-radius:4px;'
+        f'width:{max(int(b["avg"] / top * 100) if top else 0, 2)}%;"></div></div></td>'
+        f'<td style="font-size:12px;color:{INK};padding-left:8px;white-space:nowrap;">'
+        f"<b>{b['avg']}</b></td>"
+        f'<td style="font-size:11.5px;color:{GRAY_SOFT};padding-left:8px;white-space:nowrap;">'
+        f"{b['n']}명 · 활발 {b['active']}</td></tr>"
+        for b in buckets
+    )
+    return (
+        f'<div style="font-size:13px;font-weight:800;color:{INK};margin:14px 0 8px;">{title}</div>'
+        f'<table width="100%" cellpadding="0" cellspacing="2">{rows}</table>'
+    )
+
+
+def _segments_card(segments: list[tuple[str, list[dict[str, Any]]]]) -> str:
+    top = max((b["avg"] for _, buckets in segments for b in buckets), default=0.0)
+    blocks = "".join(_segment_block(title, buckets, top) for title, buckets in segments)
+    return (
+        f'<div style="{_CARD}padding:18px 22px;margin-top:16px;">'
+        f'<div style="font-size:16px;font-weight:800;color:{INK};">세그먼트별 평균</div>'
+        f'<div style="font-size:12px;color:{GRAY_SOFT};margin-top:2px;">'
+        "막대 길이는 세 축이 같은 기준입니다 · 표본이 작으니 인원 수와 함께 보세요</div>"
+        f"{blocks}</div>"
+    )
+
+
+def _score_table(rows: list[dict[str, Any]]) -> str:
+    head = (
+        f'<tr style="border-bottom:1px solid {LINE};">'
+        + "".join(
+            f'<th style="font-size:11.5px;color:{GRAY_SOFT};text-align:{align};'
+            f'padding:0 8px 6px 0;font-weight:700;white-space:nowrap;">{label}</th>'
+            for label, align in [
+                ("회원", "left"),
+                ("점수", "right"),
+                ("백분위", "right"),
+                ("등급", "left"),
+                ("발송", "right"),
+                ("반응 편", "right"),
+                ("클릭 편", "right"),
+                ("마지막 참여", "right"),
+            ]
+        )
+        + "</tr>"
+    )
+    body = "".join(
+        f'<tr style="border-bottom:1px solid {LINE};">'
+        f'<td style="font-size:13px;color:{INK};padding:7px 8px 7px 0;">{_esc(r["name"])}</td>'
+        f'<td style="font-size:13.5px;font-weight:800;color:{ACCENT};text-align:right;'
+        f'padding-right:8px;">{r["score"]}</td>'
+        f'<td style="font-size:12px;color:{GRAY_SOFT};text-align:right;padding-right:8px;">'
+        f"{r['percentile']}%</td>"
+        f'<td style="padding-right:8px;">{_tier_chip(r["tier"])}</td>'
+        f'<td style="font-size:12.5px;color:{GRAY};text-align:right;padding-right:8px;">'
+        f"{r['sends']}</td>"
+        f'<td style="font-size:12.5px;color:{GRAY};text-align:right;padding-right:8px;">'
+        f"{r['engaged']}</td>"
+        f'<td style="font-size:12.5px;color:{GRAY};text-align:right;padding-right:8px;">'
+        f"{r['clicked']}</td>"
+        f'<td style="font-size:12px;color:{GRAY_SOFT};text-align:right;white-space:nowrap;">'
+        f"{r['last'].astimezone(UTC).strftime('%m-%d') if r['last'] else '—'}</td></tr>"
+        for r in rows
+    )
+    return (
+        f'<table width="100%" cellpadding="0" cellspacing="0" '
+        f'style="border-collapse:collapse;">{head}{body}</table>'
+    )
+
+
+def render_scores_page(data: dict[str, Any]) -> str:
+    if not data["rows"]:
+        inner = (
+            f'<div style="{_CARD}padding:22px;">'
+            f'<div style="font-size:15px;font-weight:700;color:{INK};">'
+            "아직 참여도를 낼 회원이 없습니다</div>"
+            f'<div style="font-size:13px;color:{GRAY};margin-top:6px;line-height:1.7;">'
+            "파일럿 세그먼트에 회원이 등록되고 발송이 한 번 나가면 여기에 점수가 나타납니다."
+            "</div></div>"
+        )
+        return _shell("/admin/scores", inner)
+
+    tiers = [(t, n) for t, n in data["tiers"] if n]
+    bars = _bar_rows(tiers, data["total"], TIER_LABELS_KO)
+    summary = (
+        f'<div style="{_CARD}padding:20px 22px;">'
+        f'<div style="font-size:16px;font-weight:800;color:{INK};">참여도 분포</div>'
+        f'<div style="font-size:12px;color:{GRAY_SOFT};margin:2px 0 14px;">'
+        f"파일럿 {data['total']}명 · 중위 {data['median']}점 · 평균 {data['avg']}점 "
+        f"· 활발 기준 {int(ACTIVE_CUT)}점 이상</div>{bars}</div>"
+    )
+    segments = _segments_card(data["segments"])
+    table = (
+        f'<div style="{_CARD}padding:20px 22px;margin-top:16px;overflow-x:auto;">'
+        f'<div style="font-size:16px;font-weight:800;color:{INK};margin-bottom:12px;">'
+        f"회원별 참여도</div>{_score_table(data['rows'])}</div>"
+    )
+    note = (
+        f'<div style="{_CARD}padding:16px 18px;margin-top:16px;font-size:11.5px;'
+        f'color:{GRAY_SOFT};line-height:1.8;">'
+        "· 점수는 <b>발송 대비 참여</b>를 최근 것에 무게를 실어 환산한 값입니다"
+        f"(반감기 {int(HALF_LIFE_DAYS)}일). 정밀 지표가 아니라 <b>줄 세우기 도구</b>로 보세요.<br>"
+        f"· 발송 후 {BOT_OPEN_SECONDS}초 안에 찍힌 열람은 자동 스캔으로 보고 "
+        "<b>세지 않습니다</b> — 원시 열람 수가 많은데 점수가 낮은 회원은 대개 이 경우입니다.<br>"
+        "· '판단 보류'는 아직 받은 메일이 없어 판단할 근거가 없다는 뜻이며, '잠잠'과 다릅니다.<br>"
+        "· 발송이 적은 회원은 점수가 낮게 눌려 나옵니다(표본이 쌓이면 풀립니다)."
+        "</div>"
+    )
+    return _shell("/admin/scores", summary + segments + table + note)
+
+
+# ------------------------------------------------------------------ 탭 5: 발송 검토
 
 
 def collect_review(session: Session) -> dict[str, Any]:

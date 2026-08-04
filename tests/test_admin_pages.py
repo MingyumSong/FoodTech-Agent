@@ -1,7 +1,7 @@
 """T-012 관리자 페이지 — 회원관리·인기분야·발송검토. 인증·필터·CRUD·집계·발송 가드 검증."""
 
 import base64
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
@@ -14,6 +14,7 @@ from app.models.news_item import NewsItem
 from app.models.newsletter import Newsletter
 from app.models.pilot_member import PilotMember
 from app.models.send_log import SendLog
+from app.services.admin_pages import _tier_chip
 
 TOKEN = "secret-token"
 
@@ -175,7 +176,127 @@ def test_popular_aggregates_clicks_by_category(client: TestClient, session: Sess
     assert "인기 분야" in resp.text
 
 
-# ------------------------------------------------------------------ 탭 4: 발송 검토
+# ------------------------------------------------------------------ 탭 4: 참여도 (T-019)
+
+
+def _pilot(
+    session: Session,
+    name: str,
+    *,
+    group_no: int,
+    org_type: str,
+    stored_score: float = 0.0,
+) -> Member:
+    """파일럿 회원 1명 — pilot_members의 저장 점수는 일부러 0으로 둔다(AC5 검증용)."""
+    m = _member(session, name, f"{name}@example.com")
+    session.add(
+        PilotMember(
+            member_id=m.id,  # pyright: ignore[reportArgumentType]
+            name=name,
+            group_no=group_no,
+            org_type=org_type,
+            program="푸드테크 계약학과",
+            activity_score=stored_score,
+        )
+    )
+    session.commit()
+    return m
+
+
+def _sent_and_clicked(session: Session, m: Member, *, clicks: int) -> None:
+    nl = Newsletter(subject="편", html_body="<p>x</p>", status="sent")
+    session.add(nl)
+    session.commit()
+    session.refresh(nl)
+    sent_at = datetime.now(UTC) - timedelta(days=1)
+    session.add(
+        SendLog(
+            newsletter_id=nl.id,  # pyright: ignore[reportArgumentType]
+            member_id=m.id,
+            email=m.email or "",
+            status="sent",
+            created_at=sent_at,
+        )
+    )
+    session.commit()
+    for i in range(clicks):
+        session.add(
+            EngagementEvent(
+                member_id=m.id,
+                newsletter_id=nl.id,
+                event_type="clicked",
+                url=f"https://n/{m.id}/{i}",
+                provider_event_id=f"k{m.id}-{i}",
+                occurred_at=sent_at + timedelta(minutes=5 + i),
+            )
+        )
+    session.commit()
+
+
+def test_scores_requires_auth(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    assert client.get("/admin/scores").status_code == 401
+    assert client.get("/admin/scores", headers=_auth("wrong")).status_code == 401
+
+
+def test_scores_empty_state_does_not_break(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    resp = client.get("/admin/scores", headers=_auth())
+    assert resp.status_code == 200
+    assert "아직 참여도를 낼 회원이 없습니다" in resp.text
+
+
+def test_scores_computed_live_not_from_stored_column(
+    client: TestClient, session: Session, monkeypatch
+):
+    """AC5: pilot_members의 저장 점수가 0이어도 실제 참여가 있으면 0이 아닌 값이 나온다."""
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    active = _pilot(session, "활발한사람", group_no=1, org_type="기관")
+    quiet = _pilot(session, "잠잠한사람", group_no=2, org_type="개인")
+    _sent_and_clicked(session, active, clicks=3)
+    _sent_and_clicked(session, quiet, clicks=0)
+
+    resp = client.get("/admin/scores", headers=_auth())
+    assert resp.status_code == 200
+    body = resp.text
+    assert "활발한사람" in body and "잠잠한사람" in body
+    # 저장값은 둘 다 0.0 — 화면 점수가 저장값을 그대로 읽었다면 0만 보여야 한다
+    assert (
+        session.exec(select(PilotMember).where(PilotMember.name == "활발한사람"))
+        .one()
+        .activity_score
+        == 0.0
+    )
+    assert body.index("활발한사람") < body.index("잠잠한사람")  # 점수 내림차순
+    assert "참여도 분포" in body and "회원별 참여도" in body
+
+
+def test_scores_shows_segments_with_headcount(client: TestClient, session: Session, monkeypatch):
+    """AC3: 세그먼트 평균은 인원 수와 함께 나온다 — n=1 평균이 오독되지 않게."""
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    m = _pilot(session, "그룹원", group_no=3, org_type="기관")
+    _sent_and_clicked(session, m, clicks=2)
+
+    body = client.get("/admin/scores", headers=_auth()).text
+    assert "발송 그룹" in body and "소속 유형" in body and "프로그램" in body
+    assert "3조" in body and "기관" in body
+    assert "1명" in body  # 인원 수 병기
+
+
+def test_scores_marks_never_sent_member_as_unknown(
+    client: TestClient, session: Session, monkeypatch
+):
+    """AC: 발송 이력이 없는 회원은 '잠잠'이 아니라 '판단 보류'."""
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    _pilot(session, "미발송회원", group_no=4, org_type="개인")
+
+    body = client.get("/admin/scores", headers=_auth()).text
+    # 안내 문구에도 등급 이름이 나오므로 칩 마크업으로 정확히 본다
+    assert _tier_chip("unknown") in body
+    assert _tier_chip("dormant") not in body
+
+
+# ------------------------------------------------------------------ 탭 5: 발송 검토
 
 
 def test_review_build_then_shows_send(client: TestClient, session: Session, monkeypatch):

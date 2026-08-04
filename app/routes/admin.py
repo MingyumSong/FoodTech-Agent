@@ -23,9 +23,11 @@ from app.services.admin_pages import (
     collect_members_page,
     collect_popular,
     collect_review,
+    collect_scores,
     render_members_page,
     render_popular_page,
     render_review_page,
+    render_scores_page,
 )
 from app.services.admin_status import collect_stats, render_status
 from app.services.members import create_member, delete_member
@@ -125,7 +127,15 @@ def admin_popular(session: Session = Depends(get_session)) -> str:
     return render_popular_page(collect_popular(session))
 
 
-# ------------------------------------------------------------------ 탭 4: 발송 검토
+# ------------------------------------------------------------------ 탭 4: 참여도 (T-019)
+
+
+@router.get("/scores", response_class=HTMLResponse, dependencies=[Depends(require_admin_basic)])
+def admin_scores(session: Session = Depends(get_session)) -> str:
+    return render_scores_page(collect_scores(session))
+
+
+# ------------------------------------------------------------------ 탭 5: 발송 검토
 
 
 @router.get("/review", response_class=HTMLResponse, dependencies=[Depends(require_admin_basic)])
