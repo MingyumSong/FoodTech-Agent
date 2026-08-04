@@ -195,9 +195,6 @@ T-010 현황판 / T-011 매일발송 / T-012 관리자 — **전부 DONE·배포
 docker compose up -d postgres          # 로컬 DB 기동
 uv run alembic upgrade head            # 스키마 적용
 uv run uvicorn app.main:app --reload   # 서버 → http://localhost:8000 (/docs = API 문서)
-uv run pytest -q                       # 테스트 (foodtech_test DB 자동 생성)
 uv run python scripts/seed.py          # 개발 시드 데이터
-bash scripts/check.sh                  # 린트 + 타입체크 + 테스트 일괄 (CI와 동일 단계)
+bash scripts/check.sh                  # 린트 + 타입체크 + 테스트 일괄 (CI와 동일 — 이것만 돌리면 된다)
 ```
-
-프로토타입 구동이 필요하면 `archive/foodtech-hub-deploy/`에서 `pip install -r requirements.txt && python app.py`.
