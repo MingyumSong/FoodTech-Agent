@@ -28,6 +28,13 @@ from app.services.admin_status import (
     LINE,
     _bar_rows,
 )
+from app.services.dwell import (
+    BOUNCE_SECONDS,
+    ENGAGED_SECONDS,
+    MAX_GAP_SECONDS,
+    collect_dwell_stats,
+    format_seconds,
+)
 from app.services.newsletter import _recipients
 from app.services.newsletter_template import CATEGORY_LABELS_KO
 from app.services.pilot_daily import PILOT_PROGRAM, _todays_pilot_newsletter
@@ -264,7 +271,55 @@ def collect_popular(session: Session, *, days: int = 7) -> dict[str, Any]:
         "ranked": counter.most_common(),
         "clicks_total": len(urls),
         "matched": sum(counter.values()),
+        "dwell": collect_dwell_stats(session, days=days),
     }
+
+
+def _dwell_card(d: dict[str, Any]) -> str:
+    """읽은 깊이(추정) — 연속 클릭 간격 (T-015).
+
+    표본이 왜 줄었는지를 숫자와 함께 보여준다. 측정 가능 표본만 크게 띄우면
+    "클릭 128건을 다 쟀다"로 읽혀서 지표를 과신하게 된다.
+    """
+    if not d["measurable"]:
+        body = (
+            f'<div style="font-size:13px;color:{GRAY_SOFT};padding:6px 0;line-height:1.7;">'
+            "아직 잴 수 있는 간격이 없습니다 — 한 사람이 <b>한 편에서 두 번 이상</b> 눌러야 "
+            "그 사이 시간을 읽은 시간으로 볼 수 있습니다.</div>"
+        )
+    else:
+        rows = [
+            ("🤔 정독", d["engaged"], f"{ENGAGED_SECONDS}초 이상 안 돌아옴"),
+            ("· 중간", d["middle"], f"{BOUNCE_SECONDS}~{ENGAGED_SECONDS}초"),
+            ("💨 튕김", d["bounce"], f"{BOUNCE_SECONDS}초 안에 다음 기사"),
+        ]
+        bars = _bar_rows(
+            [(label, n) for label, n, _ in rows],
+            d["measurable"],
+            {label: f"{label}  ({note})" for label, _, note in rows},
+        )
+        body = (
+            f'<div style="font-size:22px;font-weight:800;color:{ACCENT};margin:2px 0 12px;">'
+            f"중앙값 {format_seconds(d['median_seconds'])}</div>{bars}"
+        )
+
+    caveat = (
+        f"클릭 {d['clicks_total']}건 중 <b>{d['measurable']}건만 측정 가능</b> — "
+        f"각 사람의 편별 마지막 클릭 {d['unmeasurable_last']}건은 다음 클릭이 없어 잴 수 없고, "
+        f"{d['over_cap']}건은 간격이 {MAX_GAP_SECONDS // 60}분을 넘어 제외했습니다."
+    )
+    note = (
+        "원문 기사 페이지의 실제 체류는 측정할 수 없습니다(남의 서버). "
+        "이건 <b>다음 기사를 누르기까지 걸린 시간</b>이며, 정밀 지표가 아니라 상대 비교용입니다."
+    )
+    return (
+        f'<div style="{_CARD}padding:20px 22px;margin-top:16px;">'
+        f'<div style="font-size:16px;font-weight:800;color:{INK};">읽은 깊이 (추정)</div>'
+        f'<div style="font-size:12px;color:{GRAY_SOFT};margin:2px 0 14px;line-height:1.7;">'
+        f"{caveat}</div>{body}"
+        f'<div style="font-size:11.5px;color:{GRAY_SOFT};margin-top:14px;line-height:1.7;'
+        f'border-top:1px solid {LINE};padding-top:10px;">{note}</div></div>'
+    )
 
 
 def render_popular_page(data: dict[str, Any]) -> str:
@@ -284,7 +339,7 @@ def render_popular_page(data: dict[str, Any]) -> str:
         f'<div style="font-size:16px;font-weight:800;color:{INK};">'
         f"최근 {data['days']}일 인기 분야</div>"
         f'<div style="font-size:12px;color:{GRAY_SOFT};margin:2px 0 14px;">{meta}</div>'
-        f"{bars}</div>"
+        f"{bars}</div>" + _dwell_card(data["dwell"])
     )
     return _shell("/admin/popular", inner)
 
