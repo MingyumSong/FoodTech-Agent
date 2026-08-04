@@ -46,13 +46,28 @@ def _diverse_pool() -> list[dict]:
 
 
 def test_select_picks_ratio_and_diversity():
-    """국내3:해외2 비율 + 한 편 안에서 분야가 겹치지 않는다."""
+    """국내4:해외1 비율 + 한 편 안에서 분야가 겹치지 않는다 (T-013: '국내 위주로' 피드백)."""
     picks = select_picks(_diverse_pool(), day_index=0)
     assert len(picks) == 5
-    assert sum(p["region"] == "domestic" for p in picks) == 3
-    assert sum(p["region"] == "overseas" for p in picks) == 2
+    assert sum(p["region"] == "domestic" for p in picks) == 4
+    assert sum(p["region"] == "overseas" for p in picks) == 1
     cats = [p["category"] for p in picks]
     assert len(set(cats)) == 5  # 5꼭지 전부 다른 분야
+
+
+def test_select_picks_orders_mains_then_headlines():
+    """반환 순서 = 메인 국내2 + 메인 해외1 + 에피타이저 국내2.
+
+    build_pilot_daily가 이 순서를 그대로 잘라 코너에 넣으므로 순서가 계약이다.
+    """
+    picks = select_picks(_diverse_pool(), day_index=0)
+    assert [p["region"] for p in picks] == [
+        "domestic",
+        "domestic",
+        "overseas",
+        "domestic",
+        "domestic",
+    ]
 
 
 def test_select_picks_rotates_across_days():

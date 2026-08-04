@@ -1,27 +1,44 @@
-"""푸디픽(FOODIE's PICK) HTML 조립 (T-008).
+"""푸디픽(FOODIE's PICK) HTML 조립 — v2 (T-013).
 
-목업(docs/branding/newsletter-mockup.html)의 "최종 시안" 시각 언어를 이메일 제약
-(600px·인라인 CSS·텍스트 우선) 안에서 재구현한다. 색만 파랑 계열(07-22 희정 피드백).
+파일럿 수신자 피드백으로 구성을 뒤집었다: 이전은 아뮤즈부슈 + 에피타이저 3 + 메인 2였고,
+지금은 **에피타이저 2 + 메인 3 + 디저트**다. 큐레이션 뉴스레터의 표준(리드 스토리 + 큐레이션
+묶음 + 단일 CTA)과도 맞다 — 깊이 볼 것을 늘리고 흘려볼 것을 줄였다.
+
+시각 언어는 B안(브리핑): 다크 네이비 헤더 + 좌측 컬러 레일 + 고밀도. 매일 발송이라 스크롤이
+짧은 쪽이 유리하다는 판단.
+
+- 아뮤즈부슈(숫자 하나) 제거 → 그 자리에 "오늘의 분야" 줄. 숫자보다 그 편에 뭐가 실렸는지
+  보여주는 게 낫고, "10대 분류 표시가 좋았다"는 피드백과도 맞다.
 - 기사 링크는 DB 저장 원본 URL 그대로 — 클릭 웹훅의 URL 문자열 매칭(T-003) 전제라 변형 금지.
-- 파일럿 코너: 01 아뮤즈부슈(숫자) · 02 에피타이저(헤드라인 3) · 03 메인(심층 2).
-  04 사이드(논문)는 OpenAlex 미구현, 05 디저트(행사 CTA)는 "(광고)" 법무 미해결로 제외 (티켓 8).
+- 헤더 네이비(#042A4F)는 배너 에셋에서 뽑은 값 — 아이콘 PNG와 이음매가 없어야 해서 고정이다.
+- 폭은 고정 600px이 아니라 max-width — 좁은 화면에서 가로로 잘리지 않게 (피드백 검수에서 발견).
 """
 
 import html as html_lib
 from typing import Any
 
-# 파란 팔레트 (목업 accent #0B9F6A(초록)를 파랑으로 치환, 중립색은 목업 그대로)
+# B안 팔레트. NAVY는 app/static/foodie-icon.png의 배경에서 샘플링한 값이라 임의 변경 금지.
+NAVY = "#042A4F"
+NAVY_MID = "#1B4468"  # 디저트 보조 버튼
+NAVY_SOFT = "#8FB3CC"  # 네이비 위 보조 텍스트
 ACCENT = "#1F6FB2"
 ACCENT_SOFT = "#E4EFF8"
+HIGHLIGHT = "#5FB0E8"
 INK = "#16181D"
 GRAY = "#4B5563"
 GRAY_SOFT = "#9CA3AF"
 LINE = "#E5E7EB"
-LINE_SOFT = "#F0F1F3"
-BG = "#E7EDF4"
+BLOCK_BG = "#F7FAFC"
+BG = "#EDF1F5"
+OVERSEAS_RAIL = "#5E7A8F"  # 해외 기사 레일 — 국내와 눈으로 구분
 
 FONT = "'Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif"
 MONO = "'SF Mono','Menlo','Consolas',monospace"
+
+# 발송 시 수신자별로 치환되는 자리표시자 (send_newsletter가 채운다).
+REACTION_BASE_PLACEHOLDER = "__REACTION_BASE__"
+
+REACTIONS = [("good", "👍 좋았어요"), ("ok", "🙂 보통"), ("bad", "🤔 별로")]
 
 
 def _esc(text: str) -> str:
@@ -43,141 +60,217 @@ CATEGORY_LABELS_KO = {
 }
 
 
-def _meta_row(item: dict[str, Any]) -> str:
-    """카테고리 칩 + 지역·소스 mono 라벨."""
-    label = CATEGORY_LABELS_KO.get(item.get("category") or "", "")
+def _label(item: dict[str, Any]) -> str:
+    return CATEGORY_LABELS_KO.get(item.get("category") or "", "")
+
+
+def _source_line(item: dict[str, Any]) -> str:
     region = "KR" if item.get("region") == "domestic" else "GLOBAL"
     source = (item.get("source") or "").strip()
-    src = f"{region} · {source}" if source else region
-    chip = (
-        f'<span style="background:{ACCENT_SOFT};color:{ACCENT};border-radius:999px;'
-        f'padding:2px 10px;font-size:11.5px;font-weight:700;">{_esc(label)}</span> '
-        if label
-        else ""
+    return f"{region} · {source}" if source else region
+
+
+def _chip(item: dict[str, Any], *, solid: bool) -> str:
+    """분야 칩. 메인은 채운 칩, 에피타이저는 연한 칩으로 위계를 준다."""
+    label = _label(item)
+    if not label:
+        return ""
+    style = (
+        f"background:{ACCENT};color:#FFFFFF;"
+        if solid
+        else f"background:{ACCENT_SOFT};color:{ACCENT};"
     )
     return (
-        f'<div style="margin-bottom:5px;">{chip}<span style="font-family:{MONO};'
-        f'font-size:11px;color:{GRAY_SOFT};">{_esc(src)}</span></div>'
+        f'<span style="{style}border-radius:3px;padding:2px 8px;'
+        f'font-size:11px;font-weight:700;">{_esc(label)}</span>'
     )
 
 
-def _course_header(no: str, name: str, desc: str) -> str:
-    """코스 뱃지(진파랑) + 이름 + 설명 + 우측 헤어라인 (목업 .fp-course 강화판)."""
-    return f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0 8px;">
+def _meta_row(item: dict[str, Any], *, solid_chip: bool) -> str:
+    return (
+        f'<div style="margin-bottom:5px;">{_chip(item, solid=solid_chip)}'
+        f'<span style="font-family:{MONO};font-size:10.5px;color:#A3AEB8;">'
+        f"&nbsp; {_esc(_source_line(item))}</span></div>"
+    )
+
+
+def _section_label(no: str, name: str, desc: str) -> str:
+    return (
+        f'<div style="margin:26px 0 2px;font-family:{MONO};font-size:10.5px;'
+        f'font-weight:700;color:{ACCENT};letter-spacing:.12em;">{no} &nbsp;{_esc(name)} '
+        f'&nbsp;<span style="color:#B4C2CE;font-weight:400;">{_esc(desc)}</span></div>'
+    )
+
+
+def _headline_item(item: dict[str, Any]) -> str:
+    """에피타이저 — 제목 먼저, 메타는 아래. 훑기 빠르게."""
+    return f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr>
-  <td style="width:1%;white-space:nowrap;padding-right:10px;">
-    <span style="font-family:{MONO};font-size:11px;font-weight:700;color:#FFFFFF;
-      background:{ACCENT};padding:4px 9px;border-radius:4px;">{no}</span>
+  <td style="width:3px;background:#9EC5E4;font-size:0;">&nbsp;</td>
+  <td style="padding:9px 0 9px 12px;">
+    <a href="{item["url"]}" style="color:{INK};font-weight:700;font-size:15px;
+       text-decoration:none;line-height:1.5;">{_esc(item["title"])}</a>
+    {_meta_row(item, solid_chip=False)}
   </td>
-  <td style="width:1%;white-space:nowrap;font-size:15px;font-weight:800;
-      letter-spacing:.05em;color:{INK};padding-right:10px;">{_esc(name)}</td>
-  <td style="width:1%;white-space:nowrap;font-size:12px;color:{GRAY_SOFT};
-      padding-right:12px;">{_esc(desc)}</td>
-  <td style="border-top:1px solid {LINE};font-size:0;">&nbsp;</td>
 </tr>
 </table>"""
 
 
-def _headline_item(item: dict[str, Any], *, last: bool = False) -> str:
-    """에피타이저 — 칩 + 제목 링크 한 줄, 가볍게."""
-    border = "" if last else f"border-bottom:1px solid {LINE_SOFT};"
-    return f"""<div style="padding:13px 0;{border}">
-  {_meta_row(item)}
-  <a href="{item["url"]}" style="color:{INK};font-weight:700;font-size:15px;
-     text-decoration:none;line-height:1.5;">{_esc(item["title"])}</a>
-</div>"""
-
-
-def _main_card(item: dict[str, Any], *, summary_limit: int = 180) -> str:
-    """메인 — 연하늘 카드로 확실한 위계."""
+def _main_card(item: dict[str, Any], *, summary_limit: int = 170) -> str:
+    """메인 — 좌측 레일 + 연회색 블록. 해외는 레일 색으로 구분."""
     summary = (item.get("summary") or "").strip()
     if len(summary) > summary_limit:
         summary = summary[: summary_limit - 1].rstrip() + "…"
     summary_html = (
-        f'<p style="margin:6px 0 0;font-size:13.5px;line-height:1.65;color:{GRAY};">'
+        f'<p style="margin:7px 0 0;font-size:13px;line-height:1.68;color:{GRAY};">'
         f"{_esc(summary)}</p>"
         if summary
         else ""
     )
-    return f"""<div style="background:#F2F7FC;border-left:3px solid {ACCENT};
-     border-radius:0 8px 8px 0;padding:16px 18px;margin:0 0 10px;">
-  {_meta_row(item)}
-  <a href="{item["url"]}" style="color:{INK};font-weight:800;font-size:16.5px;
-     text-decoration:none;line-height:1.45;">{_esc(item["title"])}</a>
-  {summary_html}
-</div>"""
+    rail = ACCENT if item.get("region") == "domestic" else OVERSEAS_RAIL
+    return f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+<tr>
+  <td style="width:4px;background:{rail};font-size:0;">&nbsp;</td>
+  <td style="background:{BLOCK_BG};padding:14px 16px;">
+    {_meta_row(item, solid_chip=True)}
+    <a href="{item["url"]}" style="color:{INK};font-weight:800;font-size:16.5px;
+       text-decoration:none;line-height:1.42;">{_esc(item["title"])}</a>
+    {summary_html}
+  </td>
+</tr>
+</table>"""
+
+
+def _today_strip(items: list[dict[str, Any]]) -> str:
+    """헤더 아래 '오늘의 분야' 한 줄 — 아뮤즈부슈를 대체한다. 중복 제거, 등장 순서 유지."""
+    seen: list[str] = []
+    for it in items:
+        label = _label(it)
+        if label and label not in seen:
+            seen.append(label)
+    if not seen:
+        return ""
+    return f"""<tr><td style="background:{
+        BLOCK_BG
+    };padding:12px 30px;border-bottom:1px solid #DFE7EE;">
+  <span style="font-family:{MONO};font-size:10px;font-weight:700;color:#7C93A6;
+    letter-spacing:.1em;">TODAY</span>
+  <span style="font-size:12.5px;color:#33526B;font-weight:600;">&nbsp; {
+        _esc(" · ".join(seen))
+    }</span>
+</td></tr>"""
+
+
+def _dessert() -> str:
+    """디저트 — 원클릭 반응 3버튼. 클릭 한 번이 참여 신호이자 체류 대체 지표가 된다."""
+    buttons = []
+    for i, (value, label) in enumerate(REACTIONS):
+        bg = ACCENT if i == 0 else NAVY_MID
+        color = "#FFFFFF" if i == 0 else "#D6E6F2"
+        buttons.append(
+            f'<a href="{REACTION_BASE_PLACEHOLDER}/{value}" style="display:inline-block;'
+            f"background:{bg};border-radius:6px;padding:9px 15px;margin:0 4px 6px 0;"
+            f'font-size:13px;font-weight:700;color:{color};text-decoration:none;">{label}</a>'
+        )
+    return f"""<table width="100%" cellpadding="0" cellspacing="0"
+       style="margin-top:10px;background:{NAVY};border-radius:8px;">
+<tr><td style="padding:18px 20px;">
+  <div style="font-size:14px;font-weight:700;color:#FFFFFF;">오늘 코스는 어떠셨나요?</div>
+  <div style="font-size:12px;color:{NAVY_SOFT};margin:4px 0 13px;">눌러주신 한 번이 다음 픽을
+    더 정확하게 만듭니다</div>
+  {"".join(buttons)}
+</td></tr>
+</table>"""
+
+
+def _header(issue_no: int, issue_date: str, icon_url: str | None) -> str:
+    icon = (
+        f'<img src="{icon_url}" width="77" height="57" alt="" style="display:block;border:0;">'
+        if icon_url
+        else "&nbsp;"
+    )
+    return f"""<tr><td style="background:{NAVY};padding:22px 30px;">
+  <table width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td valign="middle">
+      <div style="font-size:27px;font-weight:800;letter-spacing:-.02em;color:#FFFFFF;">푸디픽<span
+        style="color:{HIGHLIGHT};">✓</span></div>
+      <div style="font-family:{MONO};font-size:11px;color:{NAVY_SOFT};margin-top:5px;
+        letter-spacing:.06em;">FOODIE'S PICK · 데일리 브리핑</div>
+      <div style="font-family:{MONO};font-size:11px;color:{NAVY_SOFT};margin-top:6px;">
+        #{issue_no:03d} · {_esc(issue_date)}</div>
+    </td>
+    <td align="right" valign="middle" style="width:77px;">{icon}</td>
+  </tr></table>
+</td></tr>"""
 
 
 def render_foodie_pick(
     *,
     issue_no: int,
     issue_date: str,
-    amuse_big: str,
-    amuse_caption: str,
     main_items: list[dict[str, Any]],
     headline_items: list[dict[str, Any]],
     unsubscribe_url: str,
+    icon_url: str | None = None,
 ) -> str:
-    """푸디픽 1호분 HTML. 아이템 dict = news_items 행(title/url/summary/source/region/category)."""
-    headlines = "".join(
-        _headline_item(it, last=(i == len(headline_items) - 1))
-        for i, it in enumerate(headline_items)
-    )
+    """푸디픽 1호분 HTML. 아이템 dict = news_items 행(title/url/summary/source/region/category).
+
+    코너 순서는 에피타이저(headline_items) → 메인(main_items) → 디저트다.
+    반응 버튼 URL은 자리표시자로 남고 발송 시 수신자별로 치환된다.
+    """
+    headlines = "".join(_headline_item(it) for it in headline_items)
     mains = "".join(_main_card(it) for it in main_items)
+    today = _today_strip(headline_items + main_items)
     return f"""<!DOCTYPE html>
 <html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  @media only screen and (max-width:480px) {{
+    .fp-pad {{ padding-left:18px !important; padding-right:18px !important; }}
+  }}
+</style>
+</head>
 <body style="margin:0;padding:0;background:{BG};">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:{BG};">
-<tr><td align="center" style="padding:26px 10px;">
-<table width="600" cellpadding="0" cellspacing="0"
-       style="width:600px;max-width:100%;background:#FFFFFF;font-family:{FONT};color:{INK};">
+<tr><td align="center" style="padding:20px 8px;">
+<!--[if mso]><table width="600" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table cellpadding="0" cellspacing="0"
+       style="width:100%;max-width:600px;background:#FFFFFF;font-family:{FONT};color:{INK};">
 
-<tr><td style="height:5px;background:{ACCENT};font-size:0;line-height:0;">&nbsp;</td></tr>
+{_header(issue_no, issue_date, icon_url)}
+{today}
 
-<tr><td style="padding:28px 32px 22px;border-bottom:1px solid {LINE};">
-  <table width="100%" cellpadding="0" cellspacing="0"><tr>
-    <td>
-      <div style="font-size:30px;font-weight:800;letter-spacing:-.02em;color:{ACCENT};">푸디픽<span
-        style="color:{INK};">✓</span></div>
-      <div style="font-size:12.5px;color:#6B7280;margin-top:3px;">FOODIE's PICK —
-        푸디가 고른 푸드테크, 매주 목요일</div>
-    </td>
-    <td align="right" valign="bottom" style="font-family:{MONO};font-size:12px;
-        color:#6B7280;white-space:nowrap;">#{issue_no:03d} · {_esc(issue_date)}</td>
-  </tr></table>
-</td></tr>
+<tr><td class="fp-pad" style="padding:0 30px;">
 
-<tr><td style="padding:0 32px 8px;">
-
-  {_course_header("01", "아뮤즈부슈", "이번 주 숫자 하나")}
-  <div style="background:{ACCENT};border-radius:10px;padding:22px 24px;margin:10px 0 4px;">
-    <div style="font-size:38px;font-weight:800;letter-spacing:-.02em;
-         color:#FFFFFF;">{_esc(amuse_big)}</div>
-    <div style="font-size:14px;color:#D9E8F5;margin-top:4px;">{_esc(amuse_caption)}</div>
-  </div>
-
-  {_course_header("02", "에피타이저", "헤드라인 픽 3")}
+  {_section_label("01", "에피타이저", "가볍게 훑는 2")}
   {headlines}
 
-  {_course_header("03", "메인", "깊이 볼 뉴스 2")}
+  {_section_label("02", "메인", "깊이 보는 3")}
   {mains}
 
-  <div style="margin:28px 0 0;padding:16px 20px;background:{ACCENT_SOFT};border-radius:8px;
-       font-size:13.5px;color:#2B5474;line-height:1.6;">
-    오늘 코스는 여기까지입니다. 다음 주 목요일에 더 신선한 픽으로 차릴게요. — <b>푸디 드림</b>
+  {_section_label("03", "디저트", "한 번만 눌러주세요")}
+  {_dessert()}
+
+  <div style="margin:22px 0 0;font-size:13px;color:{GRAY};line-height:1.65;">
+    오늘 브리핑은 여기까지입니다. 내일 더 신선한 픽으로 차릴게요. — <b>푸디 드림</b>
   </div>
 
 </td></tr>
 
-<tr><td style="padding:22px 32px 28px;font-size:12px;color:{GRAY_SOFT};
-     border-top:1px solid {LINE};line-height:1.8;">
-  푸디픽은 <a href="https://foodtech-center.org" style="color:{ACCENT};
-  text-decoration:none;">푸드테크센터</a>가 매주 목요일 발행합니다.<br>
-  이 메일에 <b style="color:{GRAY};">답장</b>하시면 운영진이 직접 읽습니다.<br>
-  <a href="{unsubscribe_url}" style="color:#6B7280;">수신거부</a>
+<tr><td class="fp-pad" style="padding:22px 30px 26px;">
+  <div style="border-top:1px solid {LINE};padding-top:16px;font-size:11.5px;
+       color:{GRAY_SOFT};line-height:1.85;">
+    푸디픽은 <a href="https://foodtech-center.org" style="color:{ACCENT};
+    text-decoration:none;">푸드테크센터</a>가 발행합니다.<br>
+    이 메일에 <b style="color:{GRAY};">답장</b>하시면 운영진에게 바로 전달됩니다.<br>
+    <a href="{unsubscribe_url}" style="color:#6B7280;">수신거부</a>
+  </div>
 </td></tr>
 
 </table>
+<!--[if mso]></td></tr></table><![endif]-->
 </td></tr>
 </table>
 </body>
@@ -186,20 +279,21 @@ def render_foodie_pick(
 
 def render_text_fallback(
     *,
-    amuse_big: str,
-    amuse_caption: str,
     main_items: list[dict[str, Any]],
     headline_items: list[dict[str, Any]],
 ) -> str:
-    lines = [
-        "푸디픽 — 푸디가 고른 푸드테크",
-        "",
-        f"[아뮤즈부슈] {amuse_big} — {amuse_caption}",
-        "",
-        "[에피타이저]",
-    ]
+    categories = []
+    for it in headline_items + main_items:
+        label = _label(it)
+        if label and label not in categories:
+            categories.append(label)
+
+    lines = ["푸디픽 — 푸디가 고른 푸드테크", ""]
+    if categories:
+        lines += [f"오늘의 분야: {' · '.join(categories)}", ""]
+    lines += ["[에피타이저]"]
     lines += [f"- {it['title']} ({it['url']})" for it in headline_items]
     lines += ["", "[메인]"]
     lines += [f"- {it['title']} ({it['url']})" for it in main_items]
-    lines += ["", "오늘 코스는 여기까지입니다. — 푸디 드림"]
+    lines += ["", "오늘 브리핑은 여기까지입니다. — 푸디 드림"]
     return "\n".join(lines)

@@ -26,14 +26,25 @@ from app.models.member_program import MemberProgram
 from app.models.news_item import NewsItem
 from app.models.newsletter import Newsletter
 from app.models.send_log import SendLog
-from app.services.newsletter_template import render_foodie_pick, render_text_fallback
+from app.services.newsletter_template import (
+    REACTION_BASE_PLACEHOLDER,
+    render_foodie_pick,
+    render_text_fallback,
+)
 
 logger = get_logger("newsletter")
 
 PILOT_MAX_RECIPIENTS = 100  # 결정 4: 파일럿은 100명 이하 (Resend 무료 티어 일 100통)
-MIN_ITEMS = 5  # 메인 2 + 에피타이저 3
+MIN_ITEMS = 5  # 에피타이저 2 + 메인 3 (T-013에서 뒤집힘 — 이전은 에피 3 + 메인 2)
+N_MAINS = 3
+N_HEADLINES = 2
 UNSUB_PLACEHOLDER = "__UNSUBSCRIBE_URL__"
 SEND_INTERVAL_SECONDS = 0.6  # Resend rate limit 2 req/s
+
+
+def icon_url() -> str:
+    """이메일 헤더 아이콘의 절대 URL — 메일 클라이언트는 상대 경로를 못 푼다."""
+    return f"{settings.public_base_url}/static/foodie-icon.png"
 
 
 def _recent_items(session: Session, days: int) -> list[NewsItem]:
@@ -72,15 +83,14 @@ def build_newsletter(session: Session, *, program: str, days: int = 7) -> Newsle
     if len(items) < MIN_ITEMS:
         raise ValueError(f"최근 {days}일 뉴스가 {len(items)}건 — 최소 {MIN_ITEMS}건 필요")
 
-    mains = [it for it in items if len(it.summary or "") >= 60][:2]
+    mains = [it for it in items if len(it.summary or "") >= 60][:N_MAINS]
     main_ids = {it.id for it in mains}
-    headlines = [it for it in items if it.id not in main_ids][:3]
-    if len(mains) < 2 or len(headlines) < 3:
-        raise ValueError("코너 구성 실패 — 요약 있는 기사 2건 + 헤드라인 3건이 필요")
+    headlines = [it for it in items if it.id not in main_ids][:N_HEADLINES]
+    if len(mains) < N_MAINS or len(headlines) < N_HEADLINES:
+        raise ValueError(
+            f"코너 구성 실패 — 요약 있는 기사 {N_MAINS}건 + 헤드라인 {N_HEADLINES}건이 필요"
+        )
 
-    categories = {it.category for it in items}
-    amuse_big = f"{len(items)}건"
-    amuse_caption = f"이번 주 푸디가 새로 담은 푸드테크 뉴스 — 분야 {len(categories)}개"
     now = datetime.now(UTC)
     # 호수 = 기존 뉴스레터 수 (파일럿 첫 호 = #000, 목업 표기 규칙)
     issue_no = len(session.exec(select(Newsletter.id)).all())
@@ -92,15 +102,12 @@ def build_newsletter(session: Session, *, program: str, days: int = 7) -> Newsle
         html_body=render_foodie_pick(
             issue_no=issue_no,
             issue_date=now.strftime("%Y-%m-%d"),
-            amuse_big=amuse_big,
-            amuse_caption=amuse_caption,
             main_items=[_item_dict(it) for it in mains],
             headline_items=[_item_dict(it) for it in headlines],
             unsubscribe_url=UNSUB_PLACEHOLDER,
+            icon_url=icon_url(),
         ),
         text_body=render_text_fallback(
-            amuse_big=amuse_big,
-            amuse_caption=amuse_caption,
             main_items=[_item_dict(it) for it in mains],
             headline_items=[_item_dict(it) for it in headlines],
         ),
@@ -187,13 +194,20 @@ def send_newsletter(
             member.unsubscribe_token = secrets.token_urlsafe(16)
             session.add(member)
         unsub_url = f"{settings.public_base_url}/unsubscribe/{member.unsubscribe_token}"
+        # 반응 링크도 수신자별로 확정한다 — 토큰은 수신거부와 같은 것을 쓴다(T-013 라우트 주석 참고)
+        reaction_base = (
+            f"{settings.public_base_url}/reactions/{member.unsubscribe_token}/{newsletter_id}"
+        )
+        html = newsletter.html_body.replace(UNSUB_PLACEHOLDER, unsub_url).replace(
+            REACTION_BASE_PLACEHOLDER, reaction_base
+        )
 
         try:
             provider_id = send_email(
                 client,
                 to=email,
                 subject=newsletter.subject,
-                html=newsletter.html_body.replace(UNSUB_PLACEHOLDER, unsub_url),
+                html=html,
                 headers={
                     "List-Unsubscribe": f"<{unsub_url}>",
                     "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",  # RFC 8058

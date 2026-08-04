@@ -5,7 +5,7 @@ scratchpad 수동 스크립트(build_today→send_today→backfill_pilot)를 앱
 - 전원 동일 1편: pilot-daily 세그먼트 전원이 같은 편을 받는다.
 - 일별 분야 회전: 날짜(ordinal)로 분야 우선순위를 회전 → 연속 2일이면 서로 다른 분야 집합.
   콜드스타트에서 회원이 다양한 분야를 보게 해 Activity Score 신호를 고르게 모은다.
-- 게이트: filter_foodtech_relevant(2차 LLM)로 비푸드테크·논문 제거 후 국내3:해외2로 조립.
+- 게이트: filter_foodtech_relevant(2차 LLM)로 비푸드테크·논문 제거 후 국내4:해외1로 조립 (T-013).
 - 발송은 send_newsletter 재사용(멱등·100명 가드·provider_id 저장) — 잡 트리거만 자동화.
 - 통계 롤업: send_logs·engagement_events → pilot_members(멱등 upsert).
 """
@@ -32,6 +32,7 @@ from app.services.newsletter import (
     UNSUB_PLACEHOLDER,
     _item_dict,
     _recent_items,
+    icon_url,
     send_newsletter,
 )
 from app.services.newsletter_template import render_foodie_pick, render_text_fallback
@@ -40,8 +41,12 @@ logger = get_logger("pilot_daily")
 
 PILOT_PROGRAM = "pilot-daily"
 DEFAULT_DAYS = 7
-N_DOMESTIC = 3  # 국내 꼭지 수 (메인1 + 헤드라인2)
-N_OVERSEAS = 2  # 해외 꼭지 수 (메인1 + 헤드라인1)
+# T-013: "국내 기사 위주로" 피드백 반영 — 3:2에서 4:1로. 해외 1건은 메인에 배치해
+# 글로벌 흐름을 놓치지 않되 지면 대부분을 국내에 준다.
+N_DOMESTIC = 4  # 국내 꼭지 수 (메인2 + 에피타이저2)
+N_OVERSEAS = 1  # 해외 꼭지 수 (메인1)
+N_MAINS = 3
+N_HEADLINES = 2
 
 # 회전 대상 분야 = 정부 10대 분야 슬러그(general 제외), 표준 순서. 날짜로 이 리스트를 회전시킨다.
 ROTATION_CATEGORIES = [slug for slug in SLUG_BY_KO.values() if slug != "general"]
@@ -56,7 +61,7 @@ PILOT_BANNER = (
     "눌러주신 흔적이 앞으로 뉴스레터를 다듬는 데 큰 도움이 됩니다. 감사합니다!"
     "</div>"
 )
-_BANNER_ANCHOR = '<tr><td style="padding:0 32px 8px;">'
+_BANNER_ANCHOR = '<tr><td class="fp-pad" style="padding:0 30px;">'
 
 
 def _blocked(url: str | None) -> bool:
@@ -102,11 +107,11 @@ def _take_rotated(
 
 
 def select_picks(pool: list[dict[str, Any]], day_index: int) -> list[dict[str, Any]]:
-    """게이트 통과분에서 국내3:해외2 + 분야 distinct + 일별 회전으로 5꼭지 선정.
+    """게이트 통과분에서 국내4:해외1 + 분야 distinct + 일별 회전으로 5꼭지 선정.
 
     day_index = 날짜의 ordinal(toordinal). 이 값으로 분야 우선순위를 회전시켜
     연속한 날이면 서로 다른 분야가 앞에 오게 한다.
-    반환 순서 = [메인 국내, 메인 해외, 헤드라인 국내, 헤드라인 국내, 헤드라인 해외].
+    반환 순서 = [메인 국내, 메인 국내, 메인 해외, 에피타이저 국내, 에피타이저 국내].
     """
     dom = [it for it in pool if it.get("region") == "domestic"]
     ov = [it for it in pool if it.get("region") == "overseas"]
@@ -121,7 +126,7 @@ def select_picks(pool: list[dict[str, Any]], day_index: int) -> list[dict[str, A
             f"꼭지 부족 — 국내 {len(d)}/{N_DOMESTIC}, 해외 {len(o)}/{N_OVERSEAS} "
             "(게이트 통과분이 얇음). 발송 중단."
         )
-    return [d[0], o[0], d[1], d[2], o[1]]
+    return [d[0], d[1], o[0], d[2], d[3]]
 
 
 def _todays_pilot_newsletter(session: Session) -> Newsletter | None:
@@ -159,31 +164,29 @@ def build_pilot_daily(
 
     day_index = datetime.now(UTC).date().toordinal()
     picks = select_picks(kept, day_index)
-    mains, headlines = picks[:2], picks[2:5]
+    mains, headlines = picks[:N_MAINS], picks[N_MAINS : N_MAINS + N_HEADLINES]
 
     now = datetime.now(UTC)
     issue_no = len(session.exec(select(Newsletter.id)).all())
-    categories = {it.get("category") for it in kept}
-    amuse_big = f"{len(kept)}건"
-    amuse_caption = f"오늘 푸디가 고른 푸드테크 뉴스 — 분야 {len(categories)}개 · 국내 3 · 해외 2"
     top_title = (mains[0].get("title") or "")[:30]
 
-    html = render_foodie_pick(
+    rendered = render_foodie_pick(
         issue_no=issue_no,
         issue_date=now.strftime("%Y-%m-%d"),
-        amuse_big=amuse_big,
-        amuse_caption=amuse_caption,
         main_items=mains,
         headline_items=headlines,
         unsubscribe_url=UNSUB_PLACEHOLDER,
-    ).replace(_BANNER_ANCHOR, _BANNER_ANCHOR + PILOT_BANNER, 1)
+        icon_url=icon_url(),
+    )
+    if _BANNER_ANCHOR not in rendered:
+        # 템플릿이 바뀌면 배너가 조용히 사라진다 — 실패로 드러내야 알아챈다.
+        raise ValueError("파일럿 배너 삽입 지점을 템플릿에서 찾지 못함 — 앵커 문자열 확인 필요")
+    html = rendered.replace(_BANNER_ANCHOR, _BANNER_ANCHOR + PILOT_BANNER, 1)
 
     newsletter = Newsletter(
         subject=f"푸디픽 #{issue_no:03d} | 오늘의 푸드테크 5선 — {top_title}",
         html_body=html,
         text_body=render_text_fallback(
-            amuse_big=amuse_big,
-            amuse_caption=amuse_caption,
             main_items=mains,
             headline_items=headlines,
         ),

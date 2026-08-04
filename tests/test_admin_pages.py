@@ -36,11 +36,11 @@ def _member(session: Session, name: str, email: str, *, program=None, category=N
 
 def _seed_diverse_news(session: Session) -> None:
     now = datetime.now(UTC)
-    rows = [
+    rows = [  # T-013: 조립 비율이 국내4:해외1이라 시드도 그에 맞춘다
         ("cell_cultured", "domestic"),
         ("plant_based", "domestic"),
         ("convenience", "domestic"),
-        ("smart_manufacturing", "overseas"),
+        ("smart_manufacturing", "domestic"),
         ("food_service", "overseas"),
     ]
     for i, (cat, region) in enumerate(rows):

@@ -90,3 +90,41 @@ def ingest_resend_event(session: Session, provider_event_id: str, payload: dict[
     if not stored:
         logger.info(f"duplicate webhook event ignored: {provider_event_id}")
     return stored
+
+
+# 디저트 코너의 원클릭 반응 (T-013). 웹훅이 아니라 우리가 만든 링크로 들어온다.
+REACTION_VALUES = {"good", "ok", "bad"}
+
+
+def record_reaction(session: Session, *, member: Member, newsletter_id: int, value: str) -> None:
+    """반응 1건을 engagement_events에 적재. 같은 회원×같은 편은 1행으로 수렴한다.
+
+    멱등 키를 provider_event_id에 직접 만든다(UNIQUE) — 마음이 바뀌어 다시 누르면
+    새 행이 쌓이는 게 아니라 마지막 값으로 덮인다. 스키마 변경 없이 event_type + payload로
+    해결하려는 설계라 반응값은 payload에 넣는다.
+    """
+    if value not in REACTION_VALUES:
+        raise ValueError(f"unknown reaction: {value}")
+
+    now = datetime.now(UTC)
+    key = f"reaction:{member.id}:{newsletter_id}"
+    payload = {"reaction": value, "newsletter_id": newsletter_id}
+    stmt = (
+        pg_insert(EngagementEvent)
+        .values(
+            member_id=member.id,
+            newsletter_id=newsletter_id,
+            event_type="reacted",
+            provider_event_id=key,
+            payload=payload,
+            occurred_at=now,
+            created_at=now,
+        )
+        .on_conflict_do_update(
+            index_elements=["provider_event_id"],
+            set_={"payload": payload, "occurred_at": now},
+        )
+    )
+    session.execute(stmt)
+    session.commit()
+    logger.info(f"reaction recorded: member_id={member.id} nl={newsletter_id} value={value}")
