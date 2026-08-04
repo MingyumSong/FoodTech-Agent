@@ -31,6 +31,7 @@ from app.services.admin_status import (
 from app.services.newsletter import _recipients
 from app.services.newsletter_template import CATEGORY_LABELS_KO
 from app.services.pilot_daily import PILOT_PROGRAM, _todays_pilot_newsletter
+from app.services.send_settings import SendSettings, get_send_settings
 
 PER_PAGE = 40
 _TABS = [
@@ -301,13 +302,52 @@ def collect_review(session: Session) -> dict[str, Any]:
             .select_from(SendLog)
             .where(SendLog.newsletter_id == nl.id, SendLog.status == "sent")
         ).one()
-    return {"newsletter": nl, "recipients": recipients, "already_sent": already_sent}
+    return {
+        "newsletter": nl,
+        "recipients": recipients,
+        "already_sent": already_sent,
+        "settings": get_send_settings(session),
+    }
 
 
-def _review_empty(recipients: int) -> str:
+def _num_field(name: str, label: str, value: int) -> str:
+    style = f"width:56px;padding:6px 8px;border:1px solid {LINE};border-radius:8px;font-size:13px;"
+    return (
+        f'<label style="font-size:12.5px;color:{GRAY};margin-right:14px;'
+        'display:inline-block;margin-bottom:6px;">'
+        f'{label} <input type="number" name="{name}" value="{value}" style="{style}"></label>'
+    )
+
+
+def _settings_form(cfg: SendSettings) -> str:
+    """발송 조립 설정 폼 (T-014) — 배포 없이 꼭지 수·비율을 바꾼다."""
+    fields = (
+        _num_field("n_headlines", "에피타이저", cfg.n_headlines)
+        + _num_field("n_mains", "메인", cfg.n_mains)
+        + _num_field("n_domestic", "국내", cfg.n_domestic)
+        + _num_field("n_overseas", "해외", cfg.n_overseas)
+        + _num_field("days", "최근 일수", cfg.days)
+    )
     note = (
-        f"수신자 {recipients}명 · 조립하면 최근 뉴스로 오늘 편을 만듭니다"
-        "(게이트 통과분 국내3:해외2)."
+        f"에피타이저+메인({cfg.total})과 국내+해외({cfg.n_domestic + cfg.n_overseas})의 합이 "
+        "같아야 저장됩니다. 저장해도 이미 조립된 오늘 편에는 반영되지 않습니다 — 다시 조립하세요."
+    )
+    return (
+        f'<form method="post" action="/admin/review/settings" style="{_CARD}padding:16px 18px;'
+        'margin-bottom:16px;">'
+        f'<div style="font-size:13px;font-weight:800;color:{INK};margin-bottom:10px;">'
+        "발송 구성</div>"
+        f"{fields}"
+        f'<div style="font-size:11.5px;color:{GRAY_SOFT};margin:4px 0 12px;line-height:1.6;">'
+        f"{note}</div>"
+        f'<button type="submit" style="{_BTN}">설정 저장</button></form>'
+    )
+
+
+def _review_empty(recipients: int, cfg: SendSettings) -> str:
+    note = (
+        f"수신자 {recipients}명 · 조립하면 최근 {cfg.days}일 뉴스로 오늘 편을 만듭니다 "
+        f"(게이트 통과분 국내{cfg.n_domestic}:해외{cfg.n_overseas})."
     )
     btn = (
         f"padding:9px 18px;background:{ACCENT};color:#FFF;border:0;border-radius:8px;"
@@ -315,7 +355,7 @@ def _review_empty(recipients: int) -> str:
     )
     return _shell(
         "/admin/review",
-        f'<div style="{_CARD}padding:22px;">'
+        _settings_form(cfg) + f'<div style="{_CARD}padding:22px;">'
         f'<div style="font-size:15px;font-weight:700;color:{INK};">'
         "오늘의 파일럿 편이 아직 없습니다</div>"
         f'<div style="font-size:13px;color:{GRAY};margin:6px 0 14px;">{note}</div>'
@@ -355,8 +395,9 @@ def _review_action(recipients: int, sent: bool) -> str:
 def render_review_page(data: dict[str, Any]) -> str:
     nl: Newsletter | None = data["newsletter"]
     recipients, already_sent = data["recipients"], data["already_sent"]
+    cfg: SendSettings = data["settings"]
     if nl is None:
-        return _review_empty(recipients)
+        return _review_empty(recipients, cfg)
 
     sent = nl.status == "sent" or already_sent >= recipients > 0
     preview = (
@@ -365,7 +406,7 @@ def render_review_page(data: dict[str, Any]) -> str:
     )
     status_line = f"상태: {_esc(nl.status)} · 발송 {already_sent}/{recipients} · {preview}"
     inner = (
-        f'<div style="{_CARD}padding:22px;">'
+        _settings_form(cfg) + f'<div style="{_CARD}padding:22px;">'
         f'<div style="font-size:12px;color:{GRAY_SOFT};">오늘의 파일럿 편 (pilot-daily)</div>'
         f'<div style="font-size:16px;font-weight:800;color:{INK};margin:4px 0 8px;">'
         f"{_esc(nl.subject)}</div>"

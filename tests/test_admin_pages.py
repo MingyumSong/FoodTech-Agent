@@ -218,3 +218,56 @@ def test_review_send_guards_and_dispatches(client: TestClient, session: Session,
     resp = client.post("/admin/review/send", headers=_auth(), follow_redirects=False)
     assert resp.status_code == 303
     assert len(called) == 1  # 백그라운드 발송이 트리거됨
+
+
+# ------------------------------------------------------------------ 발송 설정 (T-014)
+
+
+def _settings_body(**over: int) -> dict[str, str]:
+    body = {"n_headlines": 2, "n_mains": 3, "n_domestic": 4, "n_overseas": 1, "days": 7}
+    body.update(over)
+    return {k: str(v) for k, v in body.items()}  # 폼 전송은 문자열
+
+
+def test_review_shows_settings_form_with_current_values(client: TestClient, monkeypatch):
+    """설정 행이 없어도 폼은 코드 기본값으로 그려진다 — 마이그레이션 직후 상태."""
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    page = client.get("/admin/review", headers=_auth())
+    assert "발송 구성" in page.text
+    assert 'name="n_mains" value="3"' in page.text
+    assert 'name="n_domestic" value="4"' in page.text
+
+
+def test_saved_settings_change_what_gets_assembled(
+    client: TestClient, session: Session, monkeypatch
+):
+    """저장한 값이 실제 조립에 반영된다(AC4) — 국내만 3꼭지로 줄여본다."""
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    monkeypatch.setattr(settings, "openrouter_api_key", "")  # 게이트 전량 통과
+    _seed_diverse_news(session)  # 국내4 + 해외1
+
+    saved = client.post(
+        "/admin/review/settings",
+        headers=_auth(),
+        data=_settings_body(n_headlines=1, n_mains=2, n_domestic=3, n_overseas=0),
+        follow_redirects=False,
+    )
+    assert saved.status_code == 303
+
+    assert client.post("/admin/review/build", headers=_auth(), follow_redirects=False).status_code
+    nl = session.exec(select(Newsletter)).one()
+    assert "3선" in nl.subject  # 5선이 아니라 설정대로 3꼭지
+    assert "GLOBAL" not in nl.html_body  # 해외 0건으로 지정했으므로 실리지 않는다
+
+
+def test_invalid_settings_rejected_with_reason(client: TestClient, monkeypatch):
+    """합이 안 맞으면 저장을 막고 사유를 돌려준다(AC5)."""
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    resp = client.post(
+        "/admin/review/settings",
+        headers=_auth(),
+        data=_settings_body(n_domestic=2, n_overseas=1),  # 3 != 에피2+메인3
+        follow_redirects=False,
+    )
+    assert resp.status_code == 400
+    assert "같아야 합니다" in resp.json()["detail"]

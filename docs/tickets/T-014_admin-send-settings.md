@@ -1,7 +1,9 @@
 # T-014 관리자 발송 설정 — 뉴스 개수·국내외 비율 조정
 
 Type: FEAT
-Status: TODO (2026-08-01 — 파일럿 수신자 피드백 ⑤에서 도출)
+Status: DONE (2026-08-04 — AC 7/7 충족, check.sh 그린 126개.
+  app_settings(RLS·왕복 검증) + send_settings(검증·기본값 폴백) + build_pilot_daily 배선 +
+  발송검토 탭 설정 폼. 관리자 화면 스크린샷 검수 완료.)
 
 ## Problem
 

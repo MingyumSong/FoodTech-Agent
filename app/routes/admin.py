@@ -36,6 +36,7 @@ from app.services.pilot_daily import (
     build_pilot_daily,
     send_reviewed,
 )
+from app.services.send_settings import SendSettings, save_send_settings
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = get_logger("admin")
@@ -130,6 +131,35 @@ def admin_popular(session: Session = Depends(get_session)) -> str:
 @router.get("/review", response_class=HTMLResponse, dependencies=[Depends(require_admin_basic)])
 def admin_review(session: Session = Depends(get_session)) -> str:
     return render_review_page(collect_review(session))
+
+
+@router.post("/review/settings", dependencies=[Depends(require_admin_basic)])
+def admin_review_settings(
+    n_headlines: int = Form(),
+    n_mains: int = Form(),
+    n_domestic: int = Form(),
+    n_overseas: int = Form(),
+    days: int = Form(),
+    session: Session = Depends(get_session),
+) -> RedirectResponse:
+    """발송 조립 설정 저장 (T-014). 검증은 서비스가 하고 실패 사유를 그대로 보여준다.
+
+    이미 조립된 오늘 편에는 소급되지 않는다 — 다시 조립해야 반영된다(화면에 안내).
+    """
+    try:
+        save_send_settings(
+            session,
+            SendSettings(
+                n_headlines=n_headlines,
+                n_mains=n_mains,
+                n_domestic=n_domestic,
+                n_overseas=n_overseas,
+                days=days,
+            ),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return RedirectResponse("/admin/review", status_code=303)
 
 
 @router.post("/review/build", dependencies=[Depends(require_admin_basic)])

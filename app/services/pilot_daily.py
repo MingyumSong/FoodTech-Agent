@@ -26,6 +26,7 @@ from app.models.news_item import NewsItem
 from app.models.newsletter import Newsletter
 from app.models.pilot_member import PilotMember
 from app.models.send_log import SendLog
+from app.services.activity_score import score_members
 from app.services.news_classify import NON_NEWS_DOMAINS, SLUG_BY_KO, filter_foodtech_relevant
 from app.services.newsletter import (
     MIN_ITEMS,
@@ -36,11 +37,12 @@ from app.services.newsletter import (
     send_newsletter,
 )
 from app.services.newsletter_template import render_foodie_pick, render_text_fallback
+from app.services.send_settings import get_send_settings
 
 logger = get_logger("pilot_daily")
 
 PILOT_PROGRAM = "pilot-daily"
-DEFAULT_DAYS = 7
+DEFAULT_DAYS = 7  # 설정 행이 없을 때의 폴백 (SendSettings.days 기본값과 같아야 함)
 # T-013: "국내 기사 위주로" 피드백 반영 — 3:2에서 4:1로. 해외 1건은 메인에 배치해
 # 글로벌 흐름을 놓치지 않되 지면 대부분을 국내에 준다.
 N_DOMESTIC = 4  # 국내 꼭지 수 (메인2 + 에피타이저2)
@@ -106,12 +108,22 @@ def _take_rotated(
     return chosen
 
 
-def select_picks(pool: list[dict[str, Any]], day_index: int) -> list[dict[str, Any]]:
-    """게이트 통과분에서 국내4:해외1 + 분야 distinct + 일별 회전으로 5꼭지 선정.
+def select_picks(
+    pool: list[dict[str, Any]],
+    day_index: int,
+    *,
+    n_domestic: int = N_DOMESTIC,
+    n_overseas: int = N_OVERSEAS,
+    n_mains: int = N_MAINS,
+) -> list[dict[str, Any]]:
+    """게이트 통과분에서 국내:해외 비율 + 분야 distinct + 일별 회전으로 꼭지 선정.
 
     day_index = 날짜의 ordinal(toordinal). 이 값으로 분야 우선순위를 회전시켜
     연속한 날이면 서로 다른 분야가 앞에 오게 한다.
-    반환 순서 = [메인 국내, 메인 국내, 메인 해외, 에피타이저 국내, 에피타이저 국내].
+
+    반환 순서 = 메인 → 에피타이저. 기본값 기준으로는
+    [메인 국내, 메인 국내, 메인 해외, 에피 국내, 에피 국내].
+    개수는 관리자 설정(T-014)이 바꿀 수 있어 인자로 받는다 — 안 넘기면 코드 기본값.
     """
     dom = [it for it in pool if it.get("region") == "domestic"]
     ov = [it for it in pool if it.get("region") == "overseas"]
@@ -119,14 +131,18 @@ def select_picks(pool: list[dict[str, Any]], day_index: int) -> list[dict[str, A
     rotated = ROTATION_CATEGORIES[offset:] + ROTATION_CATEGORIES[:offset]
 
     used: set[str] = set()
-    d = _take_rotated(dom, N_DOMESTIC, rotated, used)
-    o = _take_rotated(ov, N_OVERSEAS, rotated, used)
-    if len(d) < N_DOMESTIC or len(o) < N_OVERSEAS:
+    d = _take_rotated(dom, n_domestic, rotated, used)
+    o = _take_rotated(ov, n_overseas, rotated, used)
+    if len(d) < n_domestic or len(o) < n_overseas:
         raise ValueError(
-            f"꼭지 부족 — 국내 {len(d)}/{N_DOMESTIC}, 해외 {len(o)}/{N_OVERSEAS} "
+            f"꼭지 부족 — 국내 {len(d)}/{n_domestic}, 해외 {len(o)}/{n_overseas} "
             "(게이트 통과분이 얇음). 발송 중단."
         )
-    return [d[0], d[1], o[0], d[2], d[3]]
+    # 해외는 메인에 먼저 넣는다 — 국내 위주로 가되(4:1) 글로벌 흐름은 깊이 보는 자리에 둔다.
+    # 남는 메인 자리를 국내로 채우고 나머지가 에피타이저. 해외 0건이어도 성립한다.
+    n_main_ov = min(n_overseas, n_mains)
+    n_main_dom = n_mains - n_main_ov
+    return d[:n_main_dom] + o[:n_main_ov] + d[n_main_dom:] + o[n_main_ov:]
 
 
 def _todays_pilot_newsletter(session: Session) -> Newsletter | None:
@@ -144,27 +160,42 @@ def _todays_pilot_newsletter(session: Session) -> Newsletter | None:
 
 
 def build_pilot_daily(
-    session: Session, *, client: httpx.Client | None = None, days: int = DEFAULT_DAYS
+    session: Session, *, client: httpx.Client | None = None, days: int | None = None
 ) -> Newsletter:
-    """최근 뉴스로 오늘의 파일럿 편을 조립. 같은 날 편이 있으면 재사용(멱등)."""
+    """최근 뉴스로 오늘의 파일럿 편을 조립. 같은 날 편이 있으면 재사용(멱등).
+
+    꼭지 수·국내외 비율·기간은 관리자 설정(T-014)에서 읽는다. 설정 행이 없으면 코드 기본값이라
+    마이그레이션 직후에도 그대로 돈다. days를 넘기면 설정보다 우선(테스트·수동 조립용).
+    """
     existing = _todays_pilot_newsletter(session)
     if existing is not None:
         logger.info(f"pilot newsletter reused: id={existing.id}")
         return existing
 
+    cfg = get_send_settings(session)
+    days = cfg.days if days is None else days
+
     items = _recent_items(session, days)
     pool = [
         _item_dict(it) for it in items if (it.category or "") != "general" and not _blocked(it.url)
     ]
-    if len(pool) < MIN_ITEMS:
-        raise ValueError(f"분야 분류된 최근 뉴스가 {len(pool)}건 — 최소 {MIN_ITEMS}건 필요")
+    # 꼭지 수를 관리자가 늘렸으면 최소 풀도 그만큼 커야 한다.
+    min_items = max(MIN_ITEMS, cfg.total)
+    if len(pool) < min_items:
+        raise ValueError(f"분야 분류된 최근 뉴스가 {len(pool)}건 — 최소 {min_items}건 필요")
 
     kept, dropped = filter_foodtech_relevant(pool, client)
     logger.info(f"pilot gate: keep={len(kept)} drop={len(dropped)}")
 
     day_index = datetime.now(UTC).date().toordinal()
-    picks = select_picks(kept, day_index)
-    mains, headlines = picks[:N_MAINS], picks[N_MAINS : N_MAINS + N_HEADLINES]
+    picks = select_picks(
+        kept,
+        day_index,
+        n_domestic=cfg.n_domestic,
+        n_overseas=cfg.n_overseas,
+        n_mains=cfg.n_mains,
+    )
+    mains, headlines = picks[: cfg.n_mains], picks[cfg.n_mains : cfg.total]
 
     now = datetime.now(UTC)
     issue_no = len(session.exec(select(Newsletter.id)).all())
@@ -184,7 +215,7 @@ def build_pilot_daily(
     html = rendered.replace(_BANNER_ANCHOR, _BANNER_ANCHOR + PILOT_BANNER, 1)
 
     newsletter = Newsletter(
-        subject=f"푸디픽 #{issue_no:03d} | 오늘의 푸드테크 5선 — {top_title}",
+        subject=f"푸디픽 #{issue_no:03d} | 오늘의 푸드테크 {cfg.total}선 — {top_title}",
         html_body=html,
         text_body=render_text_fallback(
             main_items=mains,
@@ -217,12 +248,17 @@ def refresh_pilot_stats(session: Session) -> dict[str, int]:
     """pilot-daily 회원의 발송·추적을 pilot_members로 멱등 롤업(upsert).
 
     send_logs(sent) → emails_sent/last_sent_at,
-    engagement_events → emails_opened/links_clicked/last_*_at + category_clicks(뉴스 분야별).
-    Activity Score(점수·등급)는 아직 로직 미구현 — 컬럼은 건드리지 않는다.
+    engagement_events → emails_opened/links_clicked/last_*_at + category_clicks(뉴스 분야별),
+    Activity Score(T-017) → activity_score/activity_tier/score_updated_at.
+
+    집계 컬럼은 원시 관측(재열람 포함)을 그대로 담고, 점수는 편당 1회·봇 열람 제외로 따로 센다 —
+    화면에서 "열람 22회인데 점수는 낮다"가 보이는 건 의도된 것이다(원시 수는 못 믿는다).
     """
     links = session.exec(select(MemberProgram).where(MemberProgram.program == PILOT_PROGRAM)).all()
     news_cat = dict(session.exec(select(NewsItem.url, NewsItem.category)).all())
     group_by_member = _group_no_by_member(session)
+    scored_at = datetime.now(UTC)
+    scores = score_members(session, [link.member_id for link in links], now=scored_at)
 
     created = updated = 0
     for link in links:
@@ -263,6 +299,11 @@ def refresh_pilot_stats(session: Session) -> dict[str, int]:
         pm.links_clicked = len(clicks)
         pm.last_clicked_at = max((e.occurred_at for e in clicks), default=None)
         pm.category_clicks = dict(cat_clicks)
+        score = scores.get(m.id)
+        if score is not None:
+            pm.activity_score = score.score
+            pm.activity_tier = score.tier
+            pm.score_updated_at = scored_at
         pm.updated_at = datetime.now(UTC)
         session.add(pm)
     session.commit()
