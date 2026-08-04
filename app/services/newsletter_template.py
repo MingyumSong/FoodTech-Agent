@@ -18,8 +18,7 @@ import html as html_lib
 from typing import Any
 
 # B안 팔레트. NAVY는 app/static/foodie-icon.png의 배경에서 샘플링한 값이라 임의 변경 금지.
-NAVY = "#042A4F"
-NAVY_MID = "#1B4468"  # 디저트 보조 버튼
+NAVY = "#042A4F"  # 헤더 — app/static/foodie-icon.png 배경에서 샘플링
 NAVY_SOFT = "#8FB3CC"  # 네이비 위 보조 텍스트
 ACCENT = "#1F6FB2"
 ACCENT_SOFT = "#E4EFF8"
@@ -30,7 +29,6 @@ GRAY_SOFT = "#9CA3AF"
 LINE = "#E5E7EB"
 BLOCK_BG = "#F7FAFC"
 BG = "#EDF1F5"
-OVERSEAS_RAIL = "#5E7A8F"  # 해외 기사 레일 — 국내와 눈으로 구분
 
 FONT = "'Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif"
 MONO = "'SF Mono','Menlo','Consolas',monospace"
@@ -103,14 +101,14 @@ def _section_label(no: str, name: str, desc: str) -> str:
 
 
 def _headline_item(item: dict[str, Any]) -> str:
-    """에피타이저 — 제목 먼저, 메타는 아래. 훑기 빠르게."""
+    """에피타이저 — 메인과 같은 순서(칩 → 제목)로 통일. 코너가 달라도 읽는 순서는 같아야 한다."""
     return f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr>
   <td style="width:3px;background:#9EC5E4;font-size:0;">&nbsp;</td>
   <td style="padding:9px 0 9px 12px;">
+    {_meta_row(item, solid_chip=False)}
     <a href="{item["url"]}" style="color:{INK};font-weight:700;font-size:15px;
        text-decoration:none;line-height:1.5;">{_esc(item["title"])}</a>
-    {_meta_row(item, solid_chip=False)}
   </td>
 </tr>
 </table>"""
@@ -127,10 +125,11 @@ def _main_card(item: dict[str, Any], *, summary_limit: int = 170) -> str:
         if summary
         else ""
     )
-    rail = ACCENT if item.get("region") == "domestic" else OVERSEAS_RAIL
+    # 레일 색은 국내·해외를 가리지 않는다 — 회색을 쓰니 해외 기사가 덜 중요해 보였다.
+    # 지역 구분은 메타 줄의 KR/GLOBAL 라벨이 이미 하고 있다.
     return f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr>
-  <td style="width:4px;background:{rail};font-size:0;">&nbsp;</td>
+  <td style="width:4px;background:{ACCENT};font-size:0;">&nbsp;</td>
   <td style="background:{BLOCK_BG};padding:14px 16px;">
     {_meta_row(item, solid_chip=True)}
     <a href="{item["url"]}" style="color:{INK};font-weight:800;font-size:16.5px;
@@ -162,21 +161,27 @@ def _today_strip(items: list[dict[str, Any]]) -> str:
 
 
 def _dessert() -> str:
-    """디저트 — 원클릭 반응 3버튼. 클릭 한 번이 참여 신호이자 체류 대체 지표가 된다."""
+    """디저트 — 원클릭 반응 3버튼. 클릭 한 번이 참여 신호이자 체류 대체 지표가 된다.
+
+    헤더와 같은 네이비를 쓰면 위아래가 무겁게 닫혀서 연한 하늘색으로 바꿨다.
+    """
     buttons = []
     for i, (value, label) in enumerate(REACTIONS):
-        bg = ACCENT if i == 0 else NAVY_MID
-        color = "#FFFFFF" if i == 0 else "#D6E6F2"
+        style = (
+            f"background:{ACCENT};color:#FFFFFF;"
+            if i == 0
+            else f"background:#FFFFFF;color:{ACCENT};border:1px solid #C9D9E7;"
+        )
         buttons.append(
             f'<a href="{REACTION_BASE_PLACEHOLDER}/{value}" style="display:inline-block;'
-            f"background:{bg};border-radius:6px;padding:9px 15px;margin:0 4px 6px 0;"
-            f'font-size:13px;font-weight:700;color:{color};text-decoration:none;">{label}</a>'
+            f"{style}border-radius:6px;padding:9px 15px;margin:0 4px 6px 0;"
+            f'font-size:13px;font-weight:700;text-decoration:none;">{label}</a>'
         )
     return f"""<table width="100%" cellpadding="0" cellspacing="0"
-       style="margin-top:10px;background:{NAVY};border-radius:8px;">
+       style="margin-top:10px;background:{ACCENT_SOFT};border-radius:8px;">
 <tr><td style="padding:18px 20px;">
-  <div style="font-size:14px;font-weight:700;color:#FFFFFF;">오늘 코스는 어떠셨나요?</div>
-  <div style="font-size:12px;color:{NAVY_SOFT};margin:4px 0 13px;">눌러주신 한 번이 다음 픽을
+  <div style="font-size:14px;font-weight:700;color:{INK};">오늘 코스는 어떠셨나요?</div>
+  <div style="font-size:12px;color:#4A6C88;margin:4px 0 13px;">눌러주신 한 번이 다음 픽을
     더 정확하게 만듭니다</div>
   {"".join(buttons)}
 </td></tr>
