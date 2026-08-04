@@ -25,14 +25,14 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 - **스택**: FastAPI + SQLModel + Alembic. uv(Python 3.13). DB: 로컬·테스트 Docker Postgres / 운영 Supabase(`DATABASE_URL`).
 - **구조**: `app/{routes,services,models,lib}` — **Route → Service → Model** 계층. 비즈니스 로직은 서비스에, 라우트는 HTTP만.
 - **참조 구현**: members 수직 슬라이스 (model→migration→service→route→test). 새 기능은 이 패턴을 따른다.
-- **스케줄 작업**: `/jobs/*` 엔드포인트(Bearer `JOBS_TOKEN`, 멱등: news-refresh,
-  newsletter-build, newsletter-send) ← 크론/수동 호출. 현황판은 `GET /admin/status`(Basic, T-010).
+- **스케줄 작업**: `/jobs/*`(Bearer `JOBS_TOKEN`, 멱등: news-refresh, newsletter-build,
+  newsletter-send, **pilot-daily-send**=매일 13:00 KST 발송). 현황판 `GET /admin/status`(Basic, T-010).
 - **발송 카나리**: `daily-send-check.yml` 크론이 매일 09:00 KST Resend 검증 메일 1통 발송
   (GitHub Secrets: `RESEND_API_KEY`, `CHECK_EMAIL`). 실패 시 Actions 실패 알림 = 발송 경로 이상 신호.
 - **수집 크론**: `news-refresh.yml` — 매일 07:00 KST 배포 앱의 `/jobs/news-refresh` 호출 후
   `/health/news`로 갱신 검증 (Secrets: `APP_URL`, `JOBS_TOKEN`).
 - **테스트/CI**: pytest + 실제 Postgres(트랜잭션 롤백 픽스처). CI = GitHub Actions(ruff+pyright+pytest).
-- **하네스**: `.claude/rules/` 6개 + 스킬(/migrate, /seed-data, /api-test) + 훅(ruff 자동포맷, .env·uv.lock 수정차단).
+- **하네스**: `.claude/rules/` 6개 + 스킬 6종(migrate·seed-data·api-test·deploy-check·ticket-done·add-env) + 훅(ruff 자동포맷, .env·uv.lock 수정차단).
   아키텍처 결정 기록은 `scaffold-spec.md`.
 
 ## 참고 프로토타입 (`archive/foodtech-hub-deploy/` — 수정 금지)
@@ -42,8 +42,8 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 키 없으면 DRY RUN, `send_logs`/`newsletters` 흐름) — 발송 티켓(T-008)에서,
 ② 관리자 매직링크 로그인 15분 + 세션 30일 (`magic_links`/`admin_sessions`) — 관리자 페이지에
 쓰기 기능(발송 버튼 등) 붙일 때. 읽기 전용 현황판은 T-010으로 이미 배포됨(Basic 인증 임시).
-신규 스키마의 단일 진실은 Alembic 마이그레이션(Supabase 적용됨): members + member_programs +
-newsletters + send_logs + engagement_events + news_items.
+신규 스키마의 단일 진실은 Alembic 마이그레이션(Supabase 적용됨, 8테이블): members +
+member_programs + newsletters + send_logs + engagement_events + news_items + pilot_members + app_settings.
 
 ---
 
@@ -103,8 +103,8 @@ newsletters + send_logs + engagement_events + news_items.
 
 10. **뉴스레터 브랜딩 확정(2026-07-13, 희정 컨펌 대기)** — 뉴스레터 **푸디픽**(FOODIE's PICK) ×
     화자 **푸디**, 발신 `푸디 by 푸드테크센터 <foodie@news.foodtech-center.org>`, 매주 목요일.
-    코너: 아뮤즈부슈(숫자)→에피타이저(헤드라인3)→메인(심층2)→사이드(논문)→디저트(행사 CTA).
-    목업·운용 원칙은 `docs/branding/newsletter-mockup.html`.
+    **코너(T-013 v2)**: 오늘의 분야 줄 → 에피타이저 2 → 메인 3 → 디저트(원클릭 반응 3버튼).
+    현재 시안은 `docs/branding/newsletter-v2.html`(mockup.html은 v1 기록용).
 
 11. **와우 포인트 후보 4개 정리(2026-07-13, 간판 선정은 희정 논의 대기)** — 리서치는 `docs/research/wow-features.md`.
     W1 원클릭 투표 / W2 AI 푸디 답장(Resend Inbound, 2025-11 출시 — **간판 제안**) /
