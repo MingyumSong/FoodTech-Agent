@@ -25,6 +25,7 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 [ -x "$CHROME" ] || { echo "Chrome을 찾을 수 없다: $CHROME" >&2; exit 3; }
 
 OUT="${SHOT_DIR:-$(mktemp -d)}"
+mkdir -p "$OUT"  # SHOT_DIR로 없는 경로를 넘기면 캡처는 되고 비교 페이지만 조용히 실패한다
 ABS_SRC="$(cd "$(dirname "$SRC")" && pwd)/$(basename "$SRC")"
 
 shoot() {  # 폭 높이 출력파일
