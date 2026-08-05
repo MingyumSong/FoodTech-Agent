@@ -10,6 +10,7 @@
 
 import secrets
 import time
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -26,6 +27,7 @@ from app.models.member_program import MemberProgram
 from app.models.news_item import NewsItem
 from app.models.newsletter import Newsletter
 from app.models.send_log import SendLog
+from app.services.activity_score import score_members
 from app.services.curation import curate_articles
 from app.services.newsletter_template import (
     REACTION_BASE_PLACEHOLDER,
@@ -68,16 +70,25 @@ def _item_dict(item: NewsItem) -> dict[str, Any]:
     }
 
 
-def build_newsletter(session: Session, *, program: str, days: int = 7) -> Newsletter:
-    """최근 뉴스로 푸디픽 초안 생성. 같은 날 같은 세그먼트의 draft가 있으면 재사용(멱등)."""
+def build_newsletter(
+    session: Session, *, program: str, days: int = 7, tiers: Sequence[str] | None = None
+) -> Newsletter:
+    """최근 뉴스로 푸디픽 초안 생성. 같은 날 같은 세그먼트의 draft가 있으면 재사용(멱등).
+
+    `tiers`를 주면 발송 대상을 Activity Score 등급으로 좁힌다(T-023) — 발송 시점에 적용되도록
+    `target_filter`에 저장만 하고, 조립 내용은 바뀌지 않는다.
+    """
     today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     existing = session.exec(
         select(Newsletter)
         .where(Newsletter.status == "draft")
         .where(col(Newsletter.created_at) >= today_start)
     ).all()
+    wanted_tiers = sorted(tiers) if tiers else None
     for nl in existing:
-        if (nl.target_filter or {}).get("program") == program:
+        tf = nl.target_filter or {}
+        # 대상 등급이 다르면 다른 초안이다 — 재사용하면 의도한 대상 대신 옛 대상에게 나간다.
+        if tf.get("program") == program and (tf.get("tiers") or None) == wanted_tiers:
             return nl
 
     items = _recent_items(session, days)
@@ -120,7 +131,7 @@ def build_newsletter(session: Session, *, program: str, days: int = 7) -> Newsle
             main_items=[_item_dict(it) for it in mains],
             headline_items=[_item_dict(it) for it in headlines],
         ),
-        target_filter={"program": program},
+        target_filter=_target_filter(session, program, wanted_tiers),
         status="draft",
     )
     session.add(newsletter)
@@ -130,8 +141,15 @@ def build_newsletter(session: Session, *, program: str, days: int = 7) -> Newsle
     return newsletter
 
 
-def _recipients(session: Session, program: str) -> list[Member]:
-    """세그먼트 수신자 — subscribed + 이메일 보유, 이메일 기준 중복 제거."""
+def _recipients(
+    session: Session, program: str, *, tiers: Sequence[str] | None = None
+) -> list[Member]:
+    """세그먼트 수신자 — subscribed + 이메일 보유, 이메일 기준 중복 제거.
+
+    `tiers`를 주면 Activity Score 등급이 그 안에 드는 회원만 남긴다 (T-023).
+    **없으면 기존 동작 그대로** — 등급 계산도 하지 않는다.
+    등급은 목록을 좁히기만 하므로 100명 가드·멱등에는 영향이 없다.
+    """
     rows = session.exec(
         select(Member)
         .join(MemberProgram, col(MemberProgram.member_id) == col(Member.id))
@@ -148,7 +166,34 @@ def _recipients(session: Session, program: str) -> list[Member]:
         if key and key not in seen:
             seen.add(key)
             unique.append(m)
-    return unique
+
+    if not tiers:
+        return unique
+    wanted = set(tiers)
+    ids = [m.id for m in unique if m.id is not None]
+    scores = score_members(session, ids)  # 배치 — 회원이 늘어도 왕복은 그대로
+    picked = [m for m in unique if m.id is not None and (scores[m.id].tier in wanted)]
+    logger.info(f"tier filter: {len(unique)} → {len(picked)} (tiers={sorted(wanted)})")
+    return picked
+
+
+def _target_filter(session: Session, program: str, tiers: list[str] | None) -> dict[str, Any]:
+    """이 편의 발송 대상을 **조립 시점에 확정**해 저장한다 (T-023).
+
+    등급을 발송 시점에 계산하면 안 된다 — 발송 자체가 `send_logs`에 무반응 1건을 더해
+    점수를 떨어뜨리기 때문에, 재시도할 때 등급이 바뀌어 **받아야 할 사람이 빠진다**
+    (실측: 재발송에서 대상 1명 → 0명). 대상은 한 번 정하고 얼려둔다.
+
+    수신거부는 얼리지 않는다 — 발송 시점에 다시 확인해 조립 후 해지한 사람을 뺀다.
+    """
+    if not tiers:
+        return {"program": program}
+    picked = _recipients(session, program, tiers=tiers)
+    return {
+        "program": program,
+        "tiers": tiers,
+        "member_ids": sorted(m.id for m in picked if m.id is not None),
+    }
 
 
 def send_newsletter(
@@ -167,11 +212,20 @@ def send_newsletter(
     newsletter = session.get(Newsletter, newsletter_id)
     if newsletter is None:
         raise ValueError(f"newsletter {newsletter_id} 없음")
-    program = (newsletter.target_filter or {}).get("program")
+    target = newsletter.target_filter or {}
+    program = target.get("program")
     if not program:
         raise ValueError("target_filter.program 없음 — 세그먼트 없는 발송 금지")
 
+    # 대상은 조립 때 확정된다(T-023). 여기선 그 목록으로 좁히기만 한다 —
+    # 등급을 지금 다시 계산하면 이 발송 자체가 점수를 바꿔 재시도에서 대상이 흔들린다.
     recipients = _recipients(session, program)
+    frozen = target.get("member_ids")
+    if frozen is not None:
+        keep = set(frozen)
+        # 조립 후 수신거부한 사람은 _recipients가 이미 뺐다 — 교집합이라 되살아나지 않는다.
+        recipients = [m for m in recipients if m.id in keep]
+        logger.info(f"frozen target: {len(keep)}명 중 발송 가능 {len(recipients)}명")
     if len(recipients) > PILOT_MAX_RECIPIENTS:
         raise ValueError(
             f"수신자 {len(recipients)}명 > 파일럿 상한 {PILOT_MAX_RECIPIENTS} — 발송 거부 (결정 4)"

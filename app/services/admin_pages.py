@@ -4,8 +4,11 @@
 로그·커밋엔 남기지 않는다(C6). 팔레트·바 렌더는 현황판(admin_status)과 통일.
 """
 
+import csv
 import html
+import io
 from collections import Counter
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -414,8 +417,17 @@ def collect_scores(session: Session) -> dict[str, Any]:
     저장 컬럼은 이력 스냅샷으로 남겨둔다.
     """
     pilots = list(session.exec(select(PilotMember).order_by(col(PilotMember.member_id))).all())
-    scores = score_members(session, [p.member_id for p in pilots])
+    member_ids = [p.member_id for p in pilots]
+    scores = score_members(session, member_ids)
     pct = percentile_ranks({mid: r.score for mid, r in scores.items()})
+    # 이메일은 명단 추출(T-023)에 필수라 여기서 함께 읽는다 — 배치 1회, PII는 인증 뒤에서만 쓴다.
+    emails = {
+        mid: email
+        for mid, email in session.exec(
+            select(Member.id, Member.email).where(col(Member.id).in_(member_ids))
+        ).all()
+        if mid is not None
+    }
 
     rows: list[dict[str, Any]] = []
     for p in pilots:
@@ -425,6 +437,7 @@ def collect_scores(session: Session) -> dict[str, Any]:
         rows.append(
             {
                 "name": p.name,
+                "email": emails.get(p.member_id) or "",
                 "score": r.score,
                 "percentile": pct.get(p.member_id, 0),
                 "tier": r.tier,
@@ -451,6 +464,57 @@ def collect_scores(session: Session) -> dict[str, Any]:
             ("프로그램", _segment(rows, "program")),
         ],
     }
+
+
+CSV_COLUMNS = [
+    ("name", "이름"),
+    ("email", "이메일"),
+    ("score", "점수"),
+    ("tier", "등급"),
+    ("percentile", "백분위"),
+    ("sends", "발송수"),
+    ("engaged", "참여수"),
+    ("clicked", "클릭수"),
+    ("group", "그룹"),
+    ("org_type", "소속유형"),
+    ("program", "프로그램"),
+    ("last", "마지막참여"),
+]
+
+
+def scores_csv(session: Session, *, tiers: Sequence[str] | None = None) -> str:
+    """참여도 명단을 CSV로 (T-023). `tiers`가 있으면 그 등급만.
+
+    프로젝트 목표가 "참여율 높은 회원에게 행사·베네핏 부여"인데 화면으로 보는 것 말고
+    명단을 꺼낼 방법이 없었다. 이 함수가 그 경로다 — PII를 담으므로 호출부는 반드시 인증 뒤.
+
+    **BOM을 붙인다.** 없으면 Excel이 UTF-8로 안 읽어 한글 이름이 전부 깨진다.
+    """
+    data = collect_scores(session)
+    rows = data["rows"]
+    if tiers:
+        wanted = set(tiers)
+        rows = [r for r in rows if r["tier"] in wanted]
+
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\r\n")  # Excel 호환
+    writer.writerow([label for _, label in CSV_COLUMNS])
+    for r in rows:
+        writer.writerow([_csv_cell(r, key) for key, _ in CSV_COLUMNS])
+    return "﻿" + buf.getvalue()
+
+
+def _csv_cell(row: dict[str, Any], key: str) -> str:
+    value = row.get(key)
+    if value is None:
+        return ""
+    if key == "tier":
+        return TIER_LABELS_KO.get(str(value), str(value))
+    if key == "score":
+        return f"{float(value):.1f}"
+    if key == "last":
+        return value.strftime("%Y-%m-%d %H:%M") if hasattr(value, "strftime") else str(value)
+    return str(value)
 
 
 def _tier_chip(tier: str) -> str:
@@ -539,6 +603,26 @@ def _score_table(rows: list[dict[str, Any]]) -> str:
     )
 
 
+def _export_links(tiers: list[tuple[str, int]]) -> str:
+    """명단 내려받기 (T-023) — 행사·베네핏 대상을 뽑는 실제 경로.
+
+    등급별 링크는 **회원이 있는 등급만** 낸다. 눌렀는데 머리글만 든 빈 파일이 받아지면
+    고장으로 읽힌다.
+    """
+    chips = [("전원", "/admin/scores.csv")]
+    for tier, n in tiers:
+        if n and tier not in ("unknown", "unsubscribed"):
+            label = f"{TIER_LABELS_KO.get(tier, tier)} {n}명"
+            chips.append((label, f"/admin/scores.csv?tier={tier}"))
+    links = "".join(
+        f'<a href="{href}" style="display:inline-block;border:1px solid {LINE};'
+        f"border-radius:20px;padding:4px 12px;font-size:12px;color:{ACCENT};"
+        f'text-decoration:none;font-weight:700;">⬇ {html.escape(label)}</a>'
+        for label, href in chips
+    )
+    return f'<div style="display:flex;gap:6px;flex-wrap:wrap;">{links}</div>'
+
+
 def render_scores_page(data: dict[str, Any]) -> str:
     if not data["rows"]:
         inner = (
@@ -563,8 +647,10 @@ def render_scores_page(data: dict[str, Any]) -> str:
     segments = _segments_card(data["segments"])
     table = (
         f'<div style="{_CARD}padding:20px 22px;margin-top:16px;overflow-x:auto;">'
-        f'<div style="font-size:16px;font-weight:800;color:{INK};margin-bottom:12px;">'
-        f"회원별 참여도</div>{_score_table(data['rows'])}</div>"
+        f'<div style="display:flex;align-items:baseline;justify-content:space-between;'
+        f'flex-wrap:wrap;gap:8px;margin-bottom:12px;">'
+        f'<div style="font-size:16px;font-weight:800;color:{INK};">회원별 참여도</div>'
+        f"{_export_links(data['tiers'])}</div>{_score_table(data['rows'])}</div>"
     )
     note = (
         f'<div style="{_CARD}padding:16px 18px;margin-top:16px;font-size:11.5px;'

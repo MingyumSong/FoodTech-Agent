@@ -8,7 +8,7 @@
 
 import secrets
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlmodel import Session
@@ -28,6 +28,7 @@ from app.services.admin_pages import (
     render_popular_page,
     render_review_page,
     render_scores_page,
+    scores_csv,
 )
 from app.services.admin_status import collect_stats, render_status
 from app.services.members import create_member, delete_member
@@ -133,6 +134,25 @@ def admin_popular(session: Session = Depends(get_session)) -> str:
 @router.get("/scores", response_class=HTMLResponse, dependencies=[Depends(require_admin_basic)])
 def admin_scores(session: Session = Depends(get_session)) -> str:
     return render_scores_page(collect_scores(session))
+
+
+@router.get("/scores.csv", dependencies=[Depends(require_admin_basic)])
+def admin_scores_csv(
+    tier: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+) -> Response:
+    """참여도 명단 CSV 내려받기 (T-023) — `?tier=active&tier=warm`으로 등급 선별.
+
+    행사·베네핏 대상을 고르는 실제 경로다. **PII를 담으므로 Basic 인증 뒤에만 존재한다.**
+    """
+    body = scores_csv(session, tiers=tier or None)
+    name = f"foodie-scores-{'-'.join(sorted(tier)) if tier else 'all'}.csv"
+    logger.info(f"scores csv exported: tiers={sorted(tier) or 'all'}")
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
 
 
 # ------------------------------------------------------------------ 탭 5: 발송 검토
