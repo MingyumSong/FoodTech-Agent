@@ -257,6 +257,35 @@ def test_csv_route_returns_attachment(client: TestClient, monkeypatch, query: st
     assert "attachment" in resp.headers["content-disposition"]
 
 
+def test_csv_rejects_unknown_tier_instead_of_crashing(client: TestClient, monkeypatch):
+    """회귀: 검증 없이 파일명에 넣었더니 한글 등급에서 헤더 인코딩이 터져 500이 났다.
+
+    화면에 활발/관심/잠잠으로 보이니 관리자가 그대로 칠 수 있는 값이다.
+    """
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    for bad in ("활발", "bogus", 'a"; filename="pwn.csv'):
+        resp = client.get("/admin/scores.csv", params={"tier": bad}, headers=_auth())
+        assert resp.status_code == 400, f"{bad!r}에서 400이 아니라 {resp.status_code}"
+
+    # 아는 등급이 하나라도 있으면 그것만 쓰고 통과한다
+    resp = client.get("/admin/scores.csv", params={"tier": ["active", "몰라"]}, headers=_auth())
+    assert resp.status_code == 200
+    assert 'filename="foodie-scores-active.csv"' in resp.headers["content-disposition"]
+
+
+def test_csv_neutralizes_spreadsheet_formulas(session: Session, monkeypatch):
+    """회원 이름은 구글시트에서 임포트되고 CSV는 Excel로 열린다 — 수식이 실행되면 안 된다."""
+    monkeypatch.setattr(settings, "resend_api_key", "")
+    danger = "=cmd|'/c calc'!A1"
+    m = _member(session, danger, "danger@example.com")
+    session.add(PilotMember(member_id=_id(m.id), name=danger, program=PROGRAM))
+    session.commit()
+
+    body = scores_csv(session)
+    assert f"'{danger}" in body, "수식 접두사가 무력화되지 않았다"
+    assert f",{danger}" not in body
+
+
 def test_titles_fixture_is_shared_not_duplicated():
     """뉴스 픽스처를 test_newsletter에서 가져다 쓴다 — 제목이 겹치면 큐레이션이 병합한다."""
     assert len(set(DISTINCT_TITLES)) == len(DISTINCT_TITLES)

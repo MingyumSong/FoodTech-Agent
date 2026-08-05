@@ -26,6 +26,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
+      # CLAUDE.md는 세션마다 자동으로 읽히므로 200줄 제한이 있다(핸드오프 문서지 아카이브가 아님).
+      # 손으로 세다 틀린 적이 있어 CI가 센다.
+      - name: CLAUDE.md 200줄 제한
+        run: test "$(wc -l < CLAUDE.md)" -le 200 || { echo "CLAUDE.md가 200줄을 넘었다 — 오래돼 안정된 항목부터 압축할 것"; wc -l CLAUDE.md; exit 1; }
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run pyright

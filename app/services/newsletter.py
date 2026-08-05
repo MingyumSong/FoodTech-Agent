@@ -5,7 +5,12 @@
 - 멱등: send 재호출 시 이미 sent인 수신자는 건너뛴다 — send_logs가 진실.
 - provider_id(Resend email_id) 저장 필수 — T-003 웹훅이 member_id로 역추적하는 조인 키.
 - 파일럿 가드: 수신자 100 초과 시 발송 거부 (결정 4, Resend 무료 일 100통).
-- html_body에는 수신거부 URL 자리에 UNSUB_PLACEHOLDER를 저장하고 발송 시 수신자별로 치환.
+- html_body에는 수신거부 URL·반응 링크 자리에 플레이스홀더를 저장하고 발송 시 수신자별로 치환
+  (UNSUB_PLACEHOLDER, REACTION_BASE_PLACEHOLDER).
+- **대상은 조립 시점에 확정한다**(T-023). 등급(tiers)을 주면 `target_filter.member_ids`로 얼려
+  저장하고 발송은 그 목록으로 좁히기만 한다 — 발송이 send_logs에 무반응 1건을 더해 점수를
+  낮추므로, 발송 시점에 등급을 계산하면 재시도에서 대상이 사라진다.
+  단 수신거부는 얼리지 않고 발송 시점 목록과 교집합을 취한다.
 """
 
 import secrets

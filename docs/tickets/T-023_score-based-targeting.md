@@ -1,8 +1,10 @@
 # T-023: Activity Score 활용 — 등급 기반 명단 추출·발송 대상 선정
 
 Type: FEAT
-Status: DONE (2026-08-06 — T-017/T-019 완료 후 "점수를 실제로 쓰는 경로"가 없다는 점검에서 도출.
-구현 중 **발송이 자기 수신자 목록을 바꾸는 결함**을 발견해 설계를 바꿨다 — 아래 검증 결과 참조)
+Status: **PARTIAL** (2026-08-06 — CSV 명단 추출은 완료·배포. **등급 발송은 메커니즘만 있고
+관리자가 쓸 진입점이 없다** — Scope 1·2의 UI 항목 미구현. 상세는 아래 "남은 일")
+
+구현 중 **발송이 자기 수신자 목록을 바꾸는 결함**을 발견해 설계를 바꿨다 — 아래 검증 결과 참조.
 
 ## Problem
 
@@ -39,12 +41,12 @@ Status: DONE (2026-08-06 — T-017/T-019 완료 후 "점수를 실제로 쓰는 
 허용:
 
 1. `app/services/admin_pages.py`
-   - `collect_scores`에 이메일 추가(배치 조회 1회).
-   - `scores_csv(session, *, tiers)` — 등급으로 거른 CSV 문자열 생성.
-   - 발송검토 탭에 **대상 등급 선택 UI**(체크박스, 미선택=전원).
+   - `collect_scores`에 이메일 추가(배치 조회 1회). ✅
+   - `scores_csv(session, *, tiers)` — 등급으로 거른 CSV 문자열 생성. ✅
+   - ~~발송검토 탭에 **대상 등급 선택 UI**(체크박스, 미선택=전원).~~ ❌ **미구현**
 2. `app/routes/admin.py`
-   - `GET /admin/scores.csv?tier=active&tier=warm` — Basic 인증, CSV 다운로드.
-   - 발송검토의 초안 생성에 선택 등급을 전달.
+   - `GET /admin/scores.csv?tier=active&tier=warm` — Basic 인증, CSV 다운로드. ✅
+   - ~~발송검토의 초안 생성에 선택 등급을 전달.~~ ❌ **미구현**
 3. `app/services/newsletter.py`
    - `_recipients(session, program, *, tiers=None)` — `tiers`가 없으면 **현행 그대로**.
    - `build_newsletter(..., tiers=None)` → `target_filter`에 `tiers` 저장.
@@ -116,6 +118,21 @@ tier filter: 2 → 0   (재발송 — 대상이 사라짐)
   점수 계산 자체가 일어나지 않는다.
 - 등급 필터는 목록을 **좁히기만** 하므로 100명 가드·멱등(`send_logs` 기준)은 그대로다.
 - 파일럿 자동 발송은 의도적으로 전원 유지 — 점수 산출용 표본을 깎으면 안 된다(AC8).
+
+### 남은 일 — 등급 발송에 진입점이 없다 (2026-08-06 세션 랩에서 발견)
+
+`build_newsletter(..., tiers=[...])`는 동작하고 테스트도 있지만, **`tiers`를 넘기는 프로덕션
+코드가 한 줄도 없다.** 유일한 호출부인 `app/routes/jobs.py:48`이 인자를 안 넘기고,
+발송검토 탭에도 등급 선택 UI가 없다. 즉 **관리자가 등급 발송을 실행할 방법이 없다.**
+
+Scope에 UI를 적어놓고 구현하지 않은 채 DONE으로 닫았던 것을 바로잡는다. 남은 작업:
+
+- 발송검토 탭에 등급 체크박스(미선택=전원) → `admin_review_build`가 `tiers`를 넘기도록
+- 또는 `/jobs/newsletter-build`에 `tiers` 쿼리 파라미터
+
+**단 지금 급하지 않다** — 파일럿 25명은 전원 발송이고, 행사 안내 같은 비뉴스 메일을 만드는
+기능 자체가 없다. 당장 값을 내는 건 CSV 명단 추출이고 그건 완료됐다.
+본 발송이 시작돼 "활발 회원에게만" 보낼 일이 생길 때 붙이면 된다.
 
 ## 참고
 

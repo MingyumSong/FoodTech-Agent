@@ -21,6 +21,7 @@ run() {
   fi
 }
 
+run uv run ruff format --check .  # CI(ci.yml)가 도는 단계 — 빠져 있으면 로컬만 초록불이 된다
 run uv run ruff check .
 run uv run pyright
 run uv run pytest -q

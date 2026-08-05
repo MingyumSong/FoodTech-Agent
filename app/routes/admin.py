@@ -1,4 +1,5 @@
-"""관리자 페이지 — 현황판(T-010, 읽기 전용) + 회원관리·인기분야·발송검토(T-012).
+"""관리자 페이지 — 현황판(T-010) + 회원관리·인기분야·발송검토(T-012)
++ 참여도(T-019) + 명단 CSV 내보내기(T-023).
 
 매직링크 로그인 전 임시 인증: HTTP Basic (사용자명 admin, 비밀번호 = ADMIN_TOKEN).
 브라우저 기본 암호창으로 접근 가능해야 해서 Bearer 헤더 대신 Basic을 쓴다.
@@ -19,6 +20,7 @@ from app.lib.errors import ConflictError, NotFoundError
 from app.lib.logger import get_logger
 from app.models.member import MemberCreate
 from app.services.admin_pages import (
+    TIER_ORDER,
     _nav,
     collect_members_page,
     collect_popular,
@@ -145,9 +147,17 @@ def admin_scores_csv(
 
     행사·베네핏 대상을 고르는 실제 경로다. **PII를 담으므로 Basic 인증 뒤에만 존재한다.**
     """
-    body = scores_csv(session, tiers=tier or None)
-    name = f"foodie-scores-{'-'.join(sorted(tier)) if tier else 'all'}.csv"
-    logger.info(f"scores csv exported: tiers={sorted(tier) or 'all'}")
+    # 등급 값을 검증한다. 검증 없이 파일명에 넣었더니 한글 등급(`?tier=활발`)에서
+    # Content-Disposition 헤더가 latin-1 인코딩에 실패해 500이 났다 — 화면에 한글 라벨이
+    # 보이므로 관리자가 충분히 칠 수 있는 값이다. 모르는 값은 조용히 버린다.
+    wanted = [t for t in tier if t in TIER_ORDER]
+    if tier and not wanted:
+        raise HTTPException(
+            status_code=400, detail=f"알 수 없는 등급 — 가능한 값: {', '.join(TIER_ORDER)}"
+        )
+    body = scores_csv(session, tiers=wanted or None)
+    name = f"foodie-scores-{'-'.join(sorted(wanted)) if wanted else 'all'}.csv"
+    logger.info(f"scores csv exported: tiers={sorted(wanted) or 'all'}")
     return Response(
         content=body,
         media_type="text/csv; charset=utf-8",

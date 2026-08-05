@@ -1,7 +1,13 @@
 # T-022 refresh_pilot_stats 배치화 (N+1 제거)
 
 Type: TASK
-Status: TODO (2026-08-04 — 세션 랩 분석에서 발견, 코드로 확인함. **확대 발송 전에 처리**)
+Status: TODO (2026-08-04 발견 — **2026-08-06 시급도 하향**)
+
+⚠️ **"확대 발송 전 필수"는 틀린 판단이었다.** `refresh_pilot_stats`는 `pilot-daily` 세그먼트
+(25명)만 훑고, 호출부가 `run_pilot_daily` 하나뿐이다(`pilot_daily.py:342·346·359`).
+본 발송은 `/jobs/newsletter-build` → `/jobs/newsletter-send` 경로라 **이 함수를 아예 타지 않는다.**
+파일럿 세그먼트를 키우지 않는 한 3,000명 발송으로도 이 코드는 안 아프다.
+→ 순수 성능 개선으로 재분류. 파일럿 확대나 본 발송용 롤업을 만들 때 같이 처리한다.
 
 ## Problem
 

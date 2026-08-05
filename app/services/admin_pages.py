@@ -1,4 +1,7 @@
-"""관리자 탭 페이지 (T-012) — 회원관리 · 인기분야 · 발송검토. 서버 렌더 HTML.
+"""관리자 탭 페이지 — 회원관리 · 인기분야 · 참여도 · 발송검토. 서버 렌더 HTML.
+
+T-012(회원·인기분야·발송검토) + T-019(참여도 탭) + T-023(명단 CSV 내보내기).
+현황판 탭은 `admin_status.py` 소관.
 
 인증은 라우트(require_admin_basic)에서. 회원 관리 탭은 관리 목적상 PII를 화면에 표시하되
 로그·커밋엔 남기지 않는다(C6). 팔레트·바 렌더는 현황판(admin_status)과 통일.
@@ -504,6 +507,18 @@ def scores_csv(session: Session, *, tiers: Sequence[str] | None = None) -> str:
     return "﻿" + buf.getvalue()
 
 
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(text: str) -> str:
+    """Excel이 수식으로 해석하는 접두사를 무력화한다.
+
+    이름은 직원이 편집하는 구글시트에서 임포트되고(T-007), 그 CSV를 관리자가 Excel로 연다
+    (BOM을 붙인 이유가 그거다). 이름 칸에 `=...`가 들어오면 열자마자 실행된다.
+    """
+    return "'" + text if text.startswith(_CSV_FORMULA_PREFIXES) else text
+
+
 def _csv_cell(row: dict[str, Any], key: str) -> str:
     value = row.get(key)
     if value is None:
@@ -514,7 +529,7 @@ def _csv_cell(row: dict[str, Any], key: str) -> str:
         return f"{float(value):.1f}"
     if key == "last":
         return value.strftime("%Y-%m-%d %H:%M") if hasattr(value, "strftime") else str(value)
-    return str(value)
+    return _csv_safe(str(value))
 
 
 def _tier_chip(tier: str) -> str:

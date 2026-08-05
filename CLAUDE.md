@@ -145,24 +145,24 @@ T-010 현황판 / T-011 매일발송 / T-012 관리자 — **전부 DONE·배포
   (본문 스크래핑 안 함). 2차 게이트(`filter_foodtech_relevant`)는 발송 직전 LLM.
 - **추적**: 추적 도메인 `links.news.foodtech-center.org`(Resend 추적 기본 OFF라 필수였음).
   clicked url = 원본 기사 URL — 이게 T-016에서 깨질 전제다.
-- **`pilot_members`**(RLS): 25명 스냅샷+집계. 점수 컬럼은 `refresh_pilot_stats`(발송 잡)가 남기는
-  **이력 스냅샷일 뿐** — 참여도 탭(`/admin/scores`, T-019)은 저장값을 안 읽고 **조회 시점에 재계산**한다.
+- **`pilot_members`**(RLS): 25명 스냅샷+집계. 점수 컬럼은 `refresh_pilot_stats`(**파일럿 경로 전용** —
+  본 발송은 안 탄다)가 남기는 **이력 스냅샷일 뿐**. 참여도 탭은 **조회 시점에 재계산**한다.
 
 ## 2026-08-06 세션 (T-009·T-023 — 둘 다 배포·라이브 검증)
 
 - ✅ **T-009 기사 큐레이션**(`curation.py`) — 같은 사건 중복이 풀의 13.9%였다. 제목 토큰 자카드
   **0.30**(오검출 시작점 0.28을 실측해 정함). **연쇄 금지** — 묶음기사가 다리가 돼 서로 다른 두 사건이
-  뭉쳤다. 대표와 **직접** 닮은 것만 같은 사건(`cluster_of`). 묶음기사는 풀에서 제외(`is_roundup`).
+  뭉쳤다. 대표와 **직접** 닮은 것만(`cluster_of`). 묶음기사는 풀에서 제외(`is_roundup`).
   대표는 `source_tier` 0/1/2 — 표시용 `SOURCE_BY_DOMAIN`과 분리한 `PREFERRED_SOURCE_DOMAINS`다.
   신뢰도는 **필터가 아니다**(매핑률 29%·해외 1/15 → 필터면 굶는다). `NON_NEWS_DOMAINS` 2→40여 개.
-  **T-018 매체명 3건이 한 칸씩 밀려 있었다** — foodnews=식품저널/thinkfood=식품음료신문/foodbank=
-  식품외식경제로 교정. 운영: 158 → 123 (제거 35건 22.2%).
-- ✅ **T-023 Score 활용** — `/admin/scores.csv?tier=active`(Basic, UTF-8 BOM) + 참여도 탭 버튼.
-  등급 발송은 `target_filter.tiers`. **대상은 조립 시점에 확정해 `member_ids`로 얼린다** — 발송이
-  `send_logs`에 무반응 1건을 더해 점수를 낮춰 재시도에서 대상이 1→0명이 됐다. 단 수신거부는
-  안 얼리고 발송 시점 목록과 교집합. `tiers`가 없으면 기존 경로 그대로.
-- **관리자 도메인 라이브**: `https://admin.foodtech-center.org`. `PUBLIC_BASE_URL`은 **그대로
-  Railway URL** — 수신거부·반응 링크의 기준이라 바꾸면 기존 메일과 갈린다.
+  **T-018 매체명 3건이 한 칸씩 밀려 있었다** — foodnews=식품저널/thinkfood=식품음료신문/
+  foodbank=식품외식경제로 교정. 운영 158 → 123 (제거 35건 22.2%).
+- ⚠️ **T-023 Score 활용 (PARTIAL)** — `/admin/scores.csv?tier=`(Basic, BOM) + 참여도 탭 버튼은 완료.
+  **등급 발송은 메커니즘(`target_filter.tiers`)만 있고 진입점이 없다** — `tiers`를 넘기는 프로덕션
+  코드가 0줄(테스트뿐). 급하지 않아 미룬 것, 티켓 "남은 일" 참조.
+  **대상은 조립 시점에 확정해 `member_ids`로 얼린다** — 발송이 `send_logs`에 무반응 1건을 더해
+  점수를 낮춰 재시도에서 대상이 1→0명이 됐다. 수신거부만 안 얼리고 발송 시점 목록과 교집합.
+- **관리자 도메인 라이브**: `https://admin.foodtech-center.org`. 단 `PUBLIC_BASE_URL`은 **그대로 Railway URL** — 수신거부·반응 링크의 기준이라 바꾸면 기존 메일과 갈린다.
 
 ## 2026-08-04 세션 (파일럿 수신자 피드백 6건 반영 — T-013~T-018, 전부 배포됨)
 

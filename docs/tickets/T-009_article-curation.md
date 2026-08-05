@@ -77,11 +77,13 @@ Status: DONE (2026-07-22 초안 → 2026-08-05 실데이터 측정 후 재작성
 
 허용:
 
-1. `app/services/curation.py` **신규** — 중복 병합(자카드 0.30, 연결요소 군집) +
-   군집 대표 선정(신뢰 매체 → 요약 길이 → 최신). 순수 함수.
+1. `app/services/curation.py` **신규** — 중복 병합(자카드 0.30) + 군집 대표 선정
+   (선호 매체 → 요약 길이 → 최신). 순수 함수.
+   ~~연결요소 군집~~ → **구현 중 대표 직접비교로 변경**(아래 "검증 결과" 참조).
 2. `app/services/news_classify.py` — `NON_NEWS_DOMAINS` 확장(논문·보도자료 와이어·
    소셜·레시피 블로그·기업 자사 사이트). 판정 로직은 그대로.
-3. `app/services/news_sources.py` — 확신 있는 매체만 사전 추가 + `is_known_source()`.
+3. `app/services/news_sources.py` — 확신 있는 매체만 사전 추가 + ~~`is_known_source()`~~
+   → **`PREFERRED_SOURCE_DOMAINS` + `source_tier()`** 로 변경(아래 "신뢰도 설계도 한 번 뒤집혔다").
 4. `app/services/newsletter.py` / `app/services/pilot_daily.py` — 선별 직전에 병합 적용,
    `_blocked`를 호스트 기준으로 통일. 해당 블록만.
 5. `tests/test_curation.py` 신규 + 기존 테스트 갱신.

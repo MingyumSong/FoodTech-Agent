@@ -5,7 +5,10 @@ scratchpad 수동 스크립트(build_today→send_today→backfill_pilot)를 앱
 - 전원 동일 1편: pilot-daily 세그먼트 전원이 같은 편을 받는다.
 - 일별 분야 회전: 날짜(ordinal)로 분야 우선순위를 회전 → 연속 2일이면 서로 다른 분야 집합.
   콜드스타트에서 회원이 다양한 분야를 보게 해 Activity Score 신호를 고르게 모은다.
-- 게이트: filter_foodtech_relevant(2차 LLM)로 비푸드테크·논문 제거 후 국내4:해외1로 조립 (T-013).
+- 조립 순서: `_blocked`(비뉴스 도메인) → `curate_dicts`(묶음기사 제외·중복 병합, T-009)
+  → `filter_foodtech_relevant`(2차 LLM 게이트) → `select_picks`(분야 distinct·비율).
+- 꼭지 수·국내외 비율·기간은 `get_send_settings`(T-014)에서 온다 — 국내4:해외1은 코드 기본값일 뿐
+  관리자가 화면에서 바꿀 수 있다.
 - 발송은 send_newsletter 재사용(멱등·100명 가드·provider_id 저장) — 잡 트리거만 자동화.
 - 통계 롤업: send_logs·engagement_events → pilot_members(멱등 upsert).
 """

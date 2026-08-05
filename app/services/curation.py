@@ -10,7 +10,9 @@
 식물기반식품 1건 + 일반 2건). 분야가 다르니 "겹침 방지"를 그대로 통과한다.
 
 설계:
-- 제목 토큰 자카드 유사도 ≥ THRESHOLD 면 같은 사건으로 보고 연결요소로 군집화한다.
+- 제목 토큰 자카드 유사도 ≥ THRESHOLD 면 같은 사건으로 본다. 단 **연쇄로 잇지 않는다** —
+  대표와 직접 닮은 것만 한 군집이다(`cluster_of` 참조. 초안은 연결요소였는데 드라이런에서
+  묶음기사가 다리가 돼 서로 다른 두 사건이 뭉치는 걸 보고 바꿨다).
 - 군집마다 대표 1건만 남긴다. 대표는 **선호 매체 우선**(`news_sources.source_tier`) —
   같은 사건 안에서의 선택이라 분야 다양성 비용이 0인데, 지역지 대신 뉴스1을 고르는
   이득은 그대로 얻는다 (파일럿 #0의 지역지 모바일 미개봉 사고가 이 경로였다).
@@ -107,14 +109,15 @@ def cluster_of(records: Sequence[tuple[str, str, str]]) -> list[list[int]]:
       3. 입력이 빠른 것 — 호출부가 최신순으로 넘기므로 더 최신
     """
     toks = [title_tokens(r[0]) for r in records]
+    # tier를 미리 계산해둔다 — min()이 매 루프마다 전 항목에 source_tier를 다시 부르면
+    # urlparse가 n^2/2회 돈다(실측 1,264건에서 80만 회·2.5초). 한 번씩만 부르면 사라진다.
+    tiers = [source_tier(r[1]) for r in records]
+    lengths = [-len(r[2] or "") for r in records]
     remaining = set(range(len(records)))
     groups: list[list[int]] = []
 
     while remaining:
-        lead = min(
-            remaining,
-            key=lambda i: (source_tier(records[i][1]), -len(records[i][2] or ""), i),
-        )
+        lead = min(remaining, key=lambda i: (tiers[i], lengths[i], i))
         remaining.discard(lead)
         group = [lead]
         for i in sorted(remaining):

@@ -5,7 +5,13 @@ description: Railway 배포 후 검증 루틴. "/deploy-check", "배포 확인",
 
 # /deploy-check — 배포 후 검증 루틴
 
-운영 URL: `https://app-production-945c.up.railway.app` (CNAME 전까지)
+운영 URL 둘 다 **같은 서비스**를 가리킨다 (2026-08-06 CNAME 연결 완료):
+- `https://admin.foodtech-center.org` — 관리자 화면 검증은 이쪽으로 (사람이 실제로 여는 주소)
+- `https://app-production-945c.up.railway.app` — `PUBLIC_BASE_URL` 기준값. 수신거부·반응
+  링크가 이 주소로 나가므로 그 경로 검증은 이쪽으로.
+
+**사람이 여는 주소를 그대로 한 번 열어볼 것** — 전체 경로(`/admin/scores`)로만 찌르면
+루트(`/`)가 404여도 모른다. 실제로 그렇게 놓친 적이 있다.
 
 ## 먼저 — 스키마 변경이 있었나
 
