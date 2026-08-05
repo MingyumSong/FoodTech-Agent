@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
@@ -36,6 +37,15 @@ def create_app() -> FastAPI:
     app.include_router(webhooks.router)
     # 뉴스레터 헤더 아이콘 등 이메일이 절대 URL로 불러가는 이미지 (T-013)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    # admin.foodtech-center.org를 주소창에 치면 "/"로 들어온다. 라우트가 없어서
+    # {"detail":"Not Found"}만 뜨던 걸 현황판으로 보낸다 (2026-08-06).
+    # 이 앱엔 공개 페이지가 없다 — 관리자 화면·잡·웹훅뿐이라 첫 화면은 현황판이 맞다.
+    @app.get("/", include_in_schema=False)
+    @app.get("/admin", include_in_schema=False)
+    def _home() -> RedirectResponse:
+        return RedirectResponse("/admin/status")
+
     return app
 
 

@@ -392,3 +392,15 @@ def test_invalid_settings_rejected_with_reason(client: TestClient, monkeypatch):
     )
     assert resp.status_code == 400
     assert "같아야 합니다" in resp.json()["detail"]
+
+
+def test_root_and_admin_redirect_to_status(client: TestClient):
+    """주소창에 도메인만 치면 "/"로 들어온다 — 404가 아니라 현황판으로 보내야 한다.
+
+    2026-08-06 실사고: admin.foodtech-center.org를 열었더니 {"detail":"Not Found"}만 떴다.
+    라우트가 /admin/* 뿐이라 루트가 비어 있었다.
+    """
+    for path in ("/", "/admin"):
+        resp = client.get(path, follow_redirects=False)
+        assert resp.status_code in (307, 308), f"{path}가 리다이렉트하지 않는다"
+        assert resp.headers["location"] == "/admin/status"
