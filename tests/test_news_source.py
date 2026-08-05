@@ -35,8 +35,8 @@ def test_known_outlets_are_named(url: str, expected: str):
 
 def test_unknown_outlet_falls_back_to_domain():
     """모르는 매체는 도메인을 그대로 — 빈칸보다 낫고, 틀린 이름보다는 훨씬 낫다."""
-    assert source_from_url("https://www.pointdaily.co.kr/news/1") == "pointdaily.co.kr"
-    assert source_from_url("https://sjbnews.com/news/1") == "sjbnews.com"
+    assert source_from_url("https://www.no-such-outlet.co.kr/news/1") == "no-such-outlet.co.kr"
+    assert source_from_url("https://unmapped.example/news/1") == "unmapped.example"
 
 
 def test_empty_and_malformed_urls_are_safe():

@@ -140,6 +140,18 @@ SOURCE_BY_DOMAIN: dict[str, str] = {
     "viva100.com": "브릿지경제",
     "cstimes.com": "컨슈머타임스",
     "breaknews.com": "브레이크뉴스",
+    "etoday.co.kr": "이투데이",
+    "newspim.com": "뉴스핌",
+    "seoulfn.com": "서울파이낸스",
+    "finomy.com": "현대경제신문",
+    "businesskorea.co.kr": "Businesskorea",
+    "m-economynews.com": "M이코노미뉴스",
+    "megaeconomy.co.kr": "메가경제",
+    "financialreview.co.kr": "파이낸셜리뷰",
+    "startuptoday.co.kr": "오늘경제",
+    "goodkyung.com": "굿모닝경제",
+    "thepowernews.co.kr": "더파워",
+    "biztribune.co.kr": "비즈트리뷴",
     # 통신·방송
     "yna.co.kr": "연합뉴스",
     "news1.kr": "뉴스1",
@@ -154,55 +166,155 @@ SOURCE_BY_DOMAIN: dict[str, str] = {
     "zdnet.co.kr": "ZDNet Korea",
     "aving.net": "AVING",
     "kr.aving.net": "AVING",
+    "hellot.net": "헬로티",
+    "handmk.com": "핸드메이커",
+    "digitalchosun.dizzo.com": "디지틀조선일보",
+    # 종합·지역·기타 (2026-08-05 실수집분에서 반복 등장 — 각 사이트 <title>로 확인)
+    "tf.co.kr": "더팩트",
+    "enewstoday.co.kr": "이뉴스투데이",
+    "news2day.co.kr": "뉴스투데이",
+    "newscj.com": "천지일보",
+    "newsworker.co.kr": "뉴스워커",
+    "inthenews.co.kr": "인더뉴스",
+    "beyondpost.co.kr": "비욘드포스트",
+    "thefirstmedia.net": "더퍼스트미디어",
+    "thefairnews.co.kr": "더페어",
+    "pressman.kr": "프레스맨",
+    "press9.kr": "PRESS9",
+    "pointdaily.co.kr": "포인트데일리",
+    "fieldnews.kr": "필드뉴스",
+    "livesnews.com": "라이브뉴스",
+    "livebiz.today": "생생비즈플러스",
+    "slist.kr": "싱글리스트",
+    "lawissue.co.kr": "로이슈",
+    "polinews.co.kr": "폴리뉴스",
+    "lecturernews.com": "한국강사신문",
+    "dhnews.co.kr": "대학저널",
+    # 지역 일간
+    "incheonilbo.com": "인천일보",
+    "kado.net": "강원도민일보",
+    "ggilbo.com": "금강일보",
+    "jeollailbo.com": "전라일보",
+    "sjbnews.com": "새전북신문",
+    "jejusori.net": "제주의소리",
+    "gnnews.co.kr": "경남일보",
+    "dynews.co.kr": "동양일보",
     # 식품·농축수산 전문지
-    "foodnews.co.kr": "식품음료신문",
-    "thinkfood.co.kr": "식품외식경제",
+    # ⚠️ 이 셋은 T-018에서 한 칸씩 밀려 있었다(foodnews→식품음료신문, thinkfood→식품외식경제,
+    # foodbank→월간식당). 2026-08-05 각 사이트 <title>로 직접 확인해 바로잡았다.
+    "foodnews.co.kr": "식품저널",
+    "thinkfood.co.kr": "식품음료신문",
+    "foodbank.co.kr": "식품외식경제",
     "aflnews.co.kr": "농수축산신문",
-    "foodbank.co.kr": "월간식당",
+    "foodtoday.or.kr": "푸드투데이",
+    "fsnews.co.kr": "대한급식신문",
+    "agrinet.co.kr": "한국농어민신문",
+    "newsfarm.co.kr": "한국농업신문",
+    "realfoods.co.kr": "리얼푸드",
+    "vegannews.co.kr": "비건뉴스",
+    "kdfnews.com": "한국면세뉴스",
     # 공공
     "kotra.or.kr": "KOTRA 해외시장뉴스",
     "dream.kotra.or.kr": "KOTRA 해외시장뉴스",
     # 해외
     "reuters.com": "Reuters",
     "bloomberg.com": "Bloomberg",
+    "fortune.com": "Fortune",
+    "gizmodo.com": "Gizmodo",
     "foodnavigator.com": "FoodNavigator",
     "fooddive.com": "Food Dive",
     "agfundernews.com": "AgFunderNews",
     "digitalfoodlab.com": "DigitalFoodLab",
+    "greenqueen.com.hk": "Green Queen",
+    "vegconomist.com": "vegconomist",
+    "nutritioninsight.com": "Nutrition Insight",
+    "restaurantbusinessonline.com": "Restaurant Business",
+    "foodandbeverage.business": "Food & Beverage Business",
 }
+
+# 링크를 걸고 싶은 매체 — 중복 군집에서 대표를 고를 때 우선한다 (T-009).
+#
+# **위 사전과 목적이 다르다.** SOURCE_BY_DOMAIN은 "이름을 아는가"(표시용)라서 지역지·소규모
+# 매체까지 넓게 담는다. 이 목록은 "같은 사건이면 여기로 링크하고 싶은가"(편집 판단)다.
+# 사전이 넓어질수록 매핑 여부는 신뢰 신호가 못 되므로 목록을 따로 둔다.
+# 판단 근거: 파일럿 #0에서 지역지(금강일보) 기사가 모바일에서 안 열려 독자가 허탕 쳤다.
+PREFERRED_SOURCE_DOMAINS: frozenset[str] = frozenset(
+    {
+        # 통신·방송
+        "yna.co.kr", "news1.kr", "newsis.com", "ytn.co.kr", "kbs.co.kr", "imbc.com", "sbs.co.kr",
+        # 종합 일간
+        "chosun.com", "biz.chosun.com", "donga.com", "joongang.co.kr", "hani.co.kr",
+        "khan.co.kr", "seoul.co.kr", "kmib.co.kr", "munhwa.com", "segye.com",
+        "hankookilbo.com", "hankooki.com", "daily.hankooki.com", "naeil.com",
+        # 경제
+        "hankyung.com", "mk.co.kr", "mt.co.kr", "sedaily.com", "edaily.co.kr", "fnnews.com",
+        "asiae.co.kr", "heraldcorp.com", "biz.heraldcorp.com", "dnews.co.kr", "ekn.kr",
+        "etoday.co.kr", "newspim.com",
+        # IT·산업
+        "etnews.com", "dt.co.kr", "zdnet.co.kr",
+        # 식품·농축수산 전문지 — 주제 적합도가 높아 선호
+        "foodnews.co.kr", "thinkfood.co.kr", "foodbank.co.kr", "aflnews.co.kr",
+        "foodtoday.or.kr", "agrinet.co.kr", "newsfarm.co.kr", "fsnews.co.kr",
+        # 공공
+        "kotra.or.kr", "dream.kotra.or.kr",
+        # 해외
+        "reuters.com", "bloomberg.com", "fortune.com", "foodnavigator.com", "fooddive.com",
+        "agfundernews.com", "greenqueen.com.hk", "vegconomist.com", "nutritioninsight.com",
+        "restaurantbusinessonline.com",
+    }
+)  # fmt: skip
 
 # 호스트 앞에 붙어 매체를 바꾸지 않는 접두사 (biz.chosun.com은 조선비즈라 여기 없다 — 매핑 우선)
 _STRIP_PREFIXES = ("www.", "m.", "news.", "view.", "amp.")
 
 
-def source_from_url(url: str) -> str:
-    """URL 호스트에서 매체명을 되살린다. 모르는 곳이면 도메인을 그대로 돌려준다.
-
-    매핑은 전체 호스트 → 접두사 제거 → 상위 도메인 순으로 찾는다.
-    biz.chosun.com(조선비즈)과 chosun.com(조선일보)이 다른 매체라 전체 호스트가 먼저다.
-    """
+def _stripped_host(url: str) -> str:
+    """URL의 호스트에서 매체를 바꾸지 않는 접두사만 뗀 것. 없으면 빈 문자열."""
     if not url:
         return ""
     host = urlparse(url).netloc.lower().split(":")[0]
-    if not host:
-        return ""
-
-    if host in SOURCE_BY_DOMAIN:
-        return SOURCE_BY_DOMAIN[host]
-
-    stripped = host
     for prefix in _STRIP_PREFIXES:
-        if stripped.startswith(prefix):
-            stripped = stripped[len(prefix) :]
-            break
-    if stripped in SOURCE_BY_DOMAIN:
-        return SOURCE_BY_DOMAIN[stripped]
+        if host.startswith(prefix):
+            return host[len(prefix) :]
+    return host
 
-    # 서브도메인을 한 겹씩 벗겨가며 등록된 도메인을 찾는다 (news.abc.co.kr → abc.co.kr)
+
+def _host_candidates(url: str) -> list[str]:
+    """조회 키 후보를 좁은 것부터 넓은 순으로. 전체 호스트 → 접두사 제거 → 상위 도메인.
+
+    biz.chosun.com(조선비즈)과 chosun.com(조선일보)이 다른 매체라 전체 호스트가 먼저다.
+    """
+    if not url:
+        return []
+    host = urlparse(url).netloc.lower().split(":")[0]
+    if not host:
+        return []
+
+    stripped = _stripped_host(url)
+    out = [host] if stripped == host else [host, stripped]
+    # 서브도메인을 한 겹씩 벗겨가며 찾는다 (news.abc.co.kr → abc.co.kr)
     parts = stripped.split(".")
-    for i in range(1, len(parts) - 1):
-        candidate = ".".join(parts[i:])
-        if candidate in SOURCE_BY_DOMAIN:
-            return SOURCE_BY_DOMAIN[candidate]
+    out.extend(".".join(parts[i:]) for i in range(1, len(parts) - 1))
+    return out
 
-    return stripped  # 모르는 매체 — 빈칸보다 도메인이 낫다
+
+def source_from_url(url: str) -> str:
+    """URL 호스트에서 매체명을 되살린다. 모르는 곳이면 도메인을 그대로 돌려준다."""
+    for key in _host_candidates(url):
+        if key in SOURCE_BY_DOMAIN:
+            return SOURCE_BY_DOMAIN[key]
+    return _stripped_host(url)  # 모르는 매체 — 빈칸보다 도메인이 낫다
+
+
+def source_tier(url: str) -> int:
+    """링크 선호도 — 0=선호 매체, 1=이름은 아는 매체, 2=모르는 곳. **낮을수록 우선.**
+
+    중복 군집에서 대표를 고를 때만 쓴다(T-009). 거르는 데는 쓰지 않는다 —
+    매핑률이 얇아(해외 15건 중 1건) 필터로 쓰면 분야·해외 꼭지가 굶는다.
+    """
+    candidates = _host_candidates(url)
+    if any(key in PREFERRED_SOURCE_DOMAINS for key in candidates):
+        return 0
+    if any(key in SOURCE_BY_DOMAIN for key in candidates):
+        return 1
+    return 2

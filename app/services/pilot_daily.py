@@ -27,7 +27,8 @@ from app.models.newsletter import Newsletter
 from app.models.pilot_member import PilotMember
 from app.models.send_log import SendLog
 from app.services.activity_score import score_members
-from app.services.news_classify import NON_NEWS_DOMAINS, SLUG_BY_KO, filter_foodtech_relevant
+from app.services.curation import curate_dicts
+from app.services.news_classify import SLUG_BY_KO, filter_foodtech_relevant, is_non_news_url
 from app.services.newsletter import (
     MIN_ITEMS,
     UNSUB_PLACEHOLDER,
@@ -67,8 +68,12 @@ _BANNER_ANCHOR = '<tr><td class="fp-pad" style="padding:0 30px;">'
 
 
 def _blocked(url: str | None) -> bool:
-    u = url or ""
-    return any(dom in u for dom in NON_NEWS_DOMAINS)
+    """비뉴스 도메인 차단 — 수집 단계와 **같은 호스트 기준** 판정을 쓴다 (T-009).
+
+    이전엔 `dom in url` 부분일치라 경로에 도메인 문자열이 들어간 정상 기사도 걸릴 수 있었고,
+    수집 단계(`is_non_news_url`)와 판정이 달랐다.
+    """
+    return is_non_news_url(url or "")
 
 
 def _take_rotated(
@@ -179,6 +184,14 @@ def build_pilot_daily(
     pool = [
         _item_dict(it) for it in items if (it.category or "") != "general" and not _blocked(it.url)
     ]
+    # 묶음기사 제외 + 같은 사건 중복 병합 (T-009). 분야 회전(_take_rotated)은 분야가 다르면
+    # 중복을 못 막으므로 — 같은 사건이 다른 분야로 분류되는 일이 실제로 있다 — 회전 앞에서
+    # 정리해야 한다. LLM 게이트보다도 앞이라 호출 비용도 함께 줄어든다.
+    before = len(pool)
+    pool = curate_dicts(pool)
+    if len(pool) < before:
+        logger.info(f"pilot curate: {before} → {len(pool)} (묶음·중복 {before - len(pool)}건 제외)")
+
     # 꼭지 수를 관리자가 늘렸으면 최소 풀도 그만큼 커야 한다.
     min_items = max(MIN_ITEMS, cfg.total)
     if len(pool) < min_items:

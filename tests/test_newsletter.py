@@ -21,12 +21,27 @@ PROGRAM = "pilot-lab"
 LONG_SUMMARY = "배양육 기술의 상용화가 빨라지고 있다. " * 5  # 60자 이상 (메인 코너 조건)
 
 
+# 서로 다른 사건이어야 한다 — 제목이 형식만 다르면 T-009 중복 병합이 한 건으로 합쳐버린다.
+DISTINCT_TITLES = [
+    "배양육 스타트업, 시리즈B 300억 유치",
+    "서빙로봇 도입 매장 3만 곳 돌파",
+    "생분해 식품포장재 국내 첫 양산 개시",
+    "맞춤형 영양 구독 서비스, 가입자 10만 명",
+    "커피박 업사이클링 공장 준공식 열려",
+    "식품 3D프린팅 장비 수출 계약 체결",
+    "콜드체인 IoT 모니터링 표준 제정 추진",
+    "스마트 선별기로 이물 검출률 99% 달성",
+]
+
+
 def _seed_news(session: Session, n: int = 6) -> None:
+    # 제목을 돌려쓰면 중복 병합에 합쳐져 조립이 조용히 실패한다 — 모자라면 목록을 늘릴 것.
+    assert n <= len(DISTINCT_TITLES), f"제목이 {len(DISTINCT_TITLES)}개뿐 — n={n} 불가"
     now = datetime.now(UTC)
     for i in range(n):
         session.add(
             NewsItem(
-                title=f"테스트 뉴스 {i}",
+                title=DISTINCT_TITLES[i],
                 url=f"https://news.example.com/{i}",
                 summary=LONG_SUMMARY if i < 3 else "짧은 요약",
                 source="테스트일보",
@@ -63,7 +78,7 @@ def test_build_assembles_draft_and_is_idempotent_same_day(session: Session):
     nl = build_newsletter(session, program=PROGRAM)
     assert nl.status == "draft"
     assert "푸디픽" in nl.subject
-    assert "테스트 뉴스 0" in nl.html_body
+    assert DISTINCT_TITLES[0] in nl.html_body
     assert UNSUB_PLACEHOLDER in nl.html_body  # 수신자별 치환 전 플레이스홀더
     assert "https://news.example.com/0" in nl.html_body  # 원본 URL 그대로 (클릭 매칭 전제)
 

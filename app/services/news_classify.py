@@ -45,8 +45,65 @@ KO_BY_SLUG = {v: k for k, v in SLUG_BY_KO.items()}
 DISCARD_LABEL = "해당없음"
 CATEGORIES_KO = [*SLUG_BY_KO.keys(), DISCARD_LABEL]
 
-# 검수(2026-07-21)로 뉴스가 아님이 확정된 도메인 — LLM 판정 전에 결정적으로 차단.
-NON_NEWS_DOMAINS = {"wikipedia.org", "finance.yahoo.com"}
+# 뉴스가 아님이 확정된 도메인 — LLM 판정 전에 결정적으로 차단(비용·DB 오염 동시 방지).
+#
+# 2026-08-05(T-009) 대폭 확장. 계기: 30일 해외 수집분의 미매핑 도메인 상위가 전부 비뉴스였다.
+# 해외 매체 매핑률이 15건 중 1건이던 건 신뢰도 문제가 아니라 **애초에 뉴스가 아니어서**였다.
+# 국내는 네이버 뉴스 API라 이 문제가 거의 없고, Brave는 웹 전체 검색이라 그대로 들어온다.
+NON_NEWS_DOMAINS = {
+    # 백과·시세
+    "wikipedia.org",
+    "finance.yahoo.com",
+    # 논문·학술 DB — 뉴스레터 독자가 읽을 형식이 아니다(2차 게이트도 '논문'을 버린다)
+    "frontiersin.org",
+    "mdpi.com",
+    "sciencedirect.com",
+    "doi.org",
+    "springernature.com",
+    "stmjournals.com",
+    "researchgate.net",
+    "arxiv.org",
+    "biorxiv.org",
+    # 보도자료 배포 와이어·시장보고서 판매 — 기사가 아니라 홍보물이다
+    "openpr.com",
+    "eurekalert.org",
+    "prnewswire.com",
+    "businesswire.com",
+    "globenewswire.com",
+    "einpresswire.com",
+    "marketresearchreports.com",
+    "globemarketresearch.com",
+    "techversions.com",
+    # 소셜·커뮤니티
+    "tiktok.com",
+    "youtube.com",
+    "reddit.com",
+    "facebook.com",
+    "instagram.com",
+    "linkedin.com",
+    "twitter.com",
+    "x.com",
+    "ycombinator.com",
+    # 레시피·라이프스타일 — 푸드테크 산업 뉴스가 아니다
+    "foodnetwork.com",
+    "foodandwine.com",
+    "allrecipes.com",
+    "rainbowplantlife.com",
+    "theplantbasedschool.com",
+    "cleanplates.com",
+    "homediningkitchen.com",
+    "precisionnutrition.com",
+    # 기업·기관 자사 사이트 (관측된 것만 — 보이는 대로 추가한다)
+    "bentosushi.com",
+    "opendroids.com",
+    "innerbuddies.com",
+    "zenmeasure.com",
+    "hartdesign.com",
+    "magneticgoals.com",
+    "kaizen.com",
+    "forwardfooding.com",
+    "kioskindustry.org",
+}
 
 # 판정 순서·예시는 희정 검수(docs/research/뉴스분류_검수완료.md) 오분류 패턴에서 도출.
 SYSTEM_PROMPT = f"""당신은 푸드테크 뉴스 분류기다. 각 기사를 정부 "푸드테크 10대 핵심분야"
@@ -102,7 +159,7 @@ SYSTEM_PROMPT = f"""당신은 푸드테크 뉴스 분류기다. 각 기사를 �
 [{{"id": 0, "reason": "밀키트 신제품 출시 소식", "category": "간편식"}}, ...]"""
 
 
-def _is_non_news_url(url: str) -> bool:
+def is_non_news_url(url: str) -> bool:
     host = urlparse(url).netloc.lower()
     return any(host == d or host.endswith("." + d) for d in NON_NEWS_DOMAINS)
 
@@ -270,7 +327,7 @@ def classify_and_store(
     urls = [it["url"] for it in items if it.get("url")]
     existing = set(session.exec(select(NewsItem.url).where(col(NewsItem.url).in_(urls))).all())
     fresh = [it for it in items if it.get("url") and it["url"] not in existing]
-    new_items = [it for it in fresh if not _is_non_news_url(it["url"])]
+    new_items = [it for it in fresh if not is_non_news_url(it["url"])]
     stats = {
         "new": len(fresh),
         "blocked": len(fresh) - len(new_items),

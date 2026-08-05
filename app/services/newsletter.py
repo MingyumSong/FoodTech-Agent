@@ -26,6 +26,7 @@ from app.models.member_program import MemberProgram
 from app.models.news_item import NewsItem
 from app.models.newsletter import Newsletter
 from app.models.send_log import SendLog
+from app.services.curation import curate_articles
 from app.services.newsletter_template import (
     REACTION_BASE_PLACEHOLDER,
     render_foodie_pick,
@@ -80,6 +81,14 @@ def build_newsletter(session: Session, *, program: str, days: int = 7) -> Newsle
             return nl
 
     items = _recent_items(session, days)
+    # 묶음기사 제외 + 같은 사건 중복 병합 (T-009). 이 경로엔 뉴스가치 판단이 전혀 없어서
+    # 정리 없이는 5칸 중 두 칸이 같은 뉴스가 될 수 있다.
+    before = len(items)
+    items = curate_articles(items)
+    if len(items) < before:
+        logger.info(
+            f"newsletter curate: {before} → {len(items)} (묶음·중복 {before - len(items)}건 제외)"
+        )
     if len(items) < MIN_ITEMS:
         raise ValueError(f"최근 {days}일 뉴스가 {len(items)}건 — 최소 {MIN_ITEMS}건 필요")
 
