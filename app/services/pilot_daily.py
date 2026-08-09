@@ -31,7 +31,12 @@ from app.models.pilot_member import PilotMember
 from app.models.send_log import SendLog
 from app.services.activity_score import score_members
 from app.services.curation import curate_dicts
-from app.services.news_classify import SLUG_BY_KO, filter_foodtech_relevant, is_non_news_url
+from app.services.news_classify import (
+    DEPTH_NONE,
+    SLUG_BY_KO,
+    filter_foodtech_relevant,
+    is_non_news_url,
+)
 from app.services.newsletter import (
     MIN_ITEMS,
     UNSUB_PLACEHOLDER,
@@ -79,12 +84,28 @@ def _blocked(url: str | None) -> bool:
     return is_non_news_url(url or "")
 
 
+def _deep_first(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """게이트가 매긴 심도(`depth` 1~5)가 높은 것부터 앞으로. 같으면 원래 순서 (T-024).
+
+    **안정 정렬이라 판정이 없으면 입력 그대로 나온다** — 게이트가 실패했거나
+    OPENROUTER_API_KEY가 없으면 `depth` 키 자체가 안 붙고, 그러면 예전 동작으로 되돌아간다.
+    판정 없음(0)을 최저점과 같은 자리에 두는 게 그 성질의 핵심이다.
+    """
+    return sorted(items, key=lambda it: -_depth_of(it))
+
+
+def _depth_of(item: dict[str, Any]) -> int:
+    raw = item.get("depth")
+    return raw if isinstance(raw, int) else DEPTH_NONE
+
+
 def _take_rotated(
     src: list[dict[str, Any]], n: int, priority: list[str], used: set[str]
 ) -> list[dict[str, Any]]:
     """회전 우선순위대로 분야마다 1건씩 골라 분야 distinct n건을 만든다.
 
-    src는 최신순 정렬 전제(_recent_items) — 각 분야에서 가장 최신 기사가 뽑힌다.
+    src는 `_deep_first`로 심도 우선 재정렬된 최신순 목록 — 각 분야에서 **심도 있는 것 먼저,
+    같으면 가장 최신** 기사가 뽑힌다. 심도 판정이 없으면 예전대로 최신순 그대로다.
     used는 이슈 전체(국내+해외)가 공유해 분야가 겹치지 않게 한다.
     부족하면 남은 분야로, 그래도 부족하면 분야 중복이라도 채운다.
     """
@@ -131,10 +152,11 @@ def select_picks(
 
     반환 순서 = 메인 → 에피타이저. 기본값 기준으로는
     [메인 국내, 메인 국내, 메인 해외, 에피 국내, 에피 국내].
+    **국내 4건 중 메인에 앉을 2건은 게이트의 심도 판정(`depth`)으로 고른다** (T-024).
     개수는 관리자 설정(T-014)이 바꿀 수 있어 인자로 받는다 — 안 넘기면 코드 기본값.
     """
-    dom = [it for it in pool if it.get("region") == "domestic"]
-    ov = [it for it in pool if it.get("region") == "overseas"]
+    dom = _deep_first([it for it in pool if it.get("region") == "domestic"])
+    ov = _deep_first([it for it in pool if it.get("region") == "overseas"])
     offset = day_index % len(ROTATION_CATEGORIES)
     rotated = ROTATION_CATEGORIES[offset:] + ROTATION_CATEGORIES[:offset]
 
@@ -150,7 +172,54 @@ def select_picks(
     # 남는 메인 자리를 국내로 채우고 나머지가 에피타이저. 해외 0건이어도 성립한다.
     n_main_ov = min(n_overseas, n_mains)
     n_main_dom = n_mains - n_main_ov
+    # 국내 4건 중 어느 2건이 메인 자리에 앉을지는 **심도로 정한다** (T-024).
+    # 분야 회전이 정한 순서를 그대로 쓰면 "국내 목록의 앞 두 개"가 메인이 된다 —
+    # 실제로 그래서 [경제인칼럼]이 #018의 메인 1번이자 메일 제목이 됐다.
+    d = _deep_first(d)
     return d[:n_main_dom] + o[:n_main_ov] + d[n_main_dom:] + o[n_main_ov:]
+
+
+def _sent_item_urls(session: Session) -> set[str]:
+    """지난 파일럿 편들이 이미 실었던 기사 URL. 없으면 빈 집합.
+
+    `target_filter`(JSONB)에 조립 시점에 적어둔 목록을 읽는다 — 스키마를 늘리지 않으려고
+    이미 있는 컬럼을 쓴다(T-023의 `member_ids`와 같은 자리). 예전 편에는 이 키가 없어서
+    당장은 얇게 걸리지만, 새 편이 쌓이면 저절로 채워진다.
+    """
+    rows = session.exec(select(Newsletter.target_filter)).all()
+    out: set[str] = set()
+    for tf in rows:
+        if (tf or {}).get("program") == PILOT_PROGRAM:
+            out.update(u for u in (tf or {}).get("item_urls") or [] if u)
+    return out
+
+
+def _drop_already_sent(
+    session: Session, pool: list[dict[str, Any]], *, min_items: int
+) -> list[dict[str, Any]]:
+    """지난 편에 실린 기사를 뺀다 — 같은 기사가 며칠 연속 나가는 걸 막는다.
+
+    왜 필요해졌나: 예전엔 `_take_rotated`가 '분야별 **최신** 1건'을 골라서, 새 기사가
+    들어오면 어제 것이 자연히 밀려났다. 심도 우선 정렬(T-024)이 그 회전을 깬다 —
+    심도 4짜리 기사는 7일 창이 끝날 때까지 자기 분야 맨 앞을 지킨다.
+    (드라이런에서 D+1·D+2의 메인 3꼭지가 완전히 같게 나왔다.)
+
+    **풀이 얇아지면 배제를 포기한다.** 중복 노출은 거슬리는 정도지만 조립 실패는
+    그날 발송이 통째로 없어지는 일이다.
+    """
+    sent = _sent_item_urls(session)
+    if not sent:
+        return pool
+    fresh = [it for it in pool if (it.get("url") or "") not in sent]
+    if len(fresh) < min_items:
+        logger.warning(
+            f"pilot resend-filter skipped: 남은 풀 {len(fresh)}건 < 최소 {min_items}건 "
+            "— 기존 기사 재사용을 허용한다(발송 우선)"
+        )
+        return pool
+    if len(fresh) < len(pool):
+        logger.info(f"pilot resend-filter: {len(pool)} → {len(fresh)} (기발송 기사 제외)")
+    return fresh
 
 
 def _todays_pilot_newsletter(session: Session) -> Newsletter | None:
@@ -197,6 +266,7 @@ def build_pilot_daily(
 
     # 꼭지 수를 관리자가 늘렸으면 최소 풀도 그만큼 커야 한다.
     min_items = max(MIN_ITEMS, cfg.total)
+    pool = _drop_already_sent(session, pool, min_items=min_items)
     if len(pool) < min_items:
         raise ValueError(f"분야 분류된 최근 뉴스가 {len(pool)}건 — 최소 {min_items}건 필요")
 
@@ -237,7 +307,11 @@ def build_pilot_daily(
             main_items=mains,
             headline_items=headlines,
         ),
-        target_filter={"program": PILOT_PROGRAM},
+        # item_urls: 다음 편이 같은 기사를 다시 싣지 않도록 남기는 기록 (`_drop_already_sent`).
+        target_filter={
+            "program": PILOT_PROGRAM,
+            "item_urls": [p.get("url") for p in picks if p.get("url")],
+        },
         status="draft",
     )
     session.add(newsletter)

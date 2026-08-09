@@ -141,6 +141,58 @@ def test_member_delete_detaches_tracking(client: TestClient, session: Session, m
     assert session.exec(select(PilotMember).where(PilotMember.member_id == m.id)).first() is None
 
 
+def test_admin_can_restore_unsubscribed_member(client: TestClient, session: Session, monkeypatch):
+    """수신거부한 회원을 되살리는 유일한 경로 (T-025).
+
+    이게 없어서 "다시 받고 싶으면 연락주세요"라는 안내가 빈말이었다 —
+    연락을 받아도 직원이 DB를 직접 쓰는 것 말고 방법이 없었다.
+    """
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    m = _member(session, "돌아온회원", "back@example.com")
+    m.subscribed = False
+    session.add(m)
+    session.commit()
+    before = m.updated_at
+
+    resp = client.post(
+        f"/admin/members/{m.id}/subscribed",
+        data={"subscribed": "1"},
+        headers=_auth(),
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    session.refresh(m)
+    assert m.subscribed is True
+    assert m.updated_at > before  # 언제 되살렸는지도 남는다
+
+
+def test_admin_subscription_toggle_is_idempotent(client: TestClient, session: Session, monkeypatch):
+    """같은 값으로 다시 눌러도 updated_at을 흔들지 않는다 — 이탈 시점 기록이 지워지면 안 된다."""
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    m = _member(session, "구독중", "keep@example.com")
+    before = m.updated_at
+    client.post(
+        f"/admin/members/{m.id}/subscribed",
+        data={"subscribed": "1"},
+        headers=_auth(),
+        follow_redirects=False,
+    )
+    session.refresh(m)
+    assert m.subscribed is True
+    assert m.updated_at == before
+
+
+def test_members_page_offers_restore_button(client: TestClient, session: Session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    m = _member(session, "끊긴회원", "gone@example.com")
+    m.subscribed = False
+    session.add(m)
+    session.commit()
+    body = client.get("/admin/members", headers=_auth()).text
+    assert f'action="/admin/members/{m.id}/subscribed"' in body
+    assert "되살리기" in body
+
+
 # ------------------------------------------------------------------ 탭 2: 인기 분야
 
 

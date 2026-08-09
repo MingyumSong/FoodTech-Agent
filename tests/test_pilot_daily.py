@@ -1,6 +1,6 @@
 """T-011 파일럿 매일발송 — 분야 다양성·일별 회전·통계 롤업 검증."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlmodel import Session, select
@@ -70,6 +70,31 @@ def test_select_picks_orders_mains_then_headlines():
     ]
 
 
+def test_mains_are_chosen_by_depth_not_list_order():
+    """메인 자리는 '국내 목록의 앞 두 개'가 아니라 **심도 있는 기사**가 차지한다 (T-024).
+
+    이걸 안 하면 실제로 벌어진 일: #018 메인 1번이 `[경제인칼럼] 동네상권 위기의 외식업`이었고
+    `top_title = mains[0]`이라 메일 제목까지 그 칼럼이었다.
+    """
+    pool = _diverse_pool()
+    # 국내 목록의 뒤쪽 두 건에만 심도를 준다 — 순서만 따르면 절대 메인에 못 오는 자리다.
+    deep = {DOM[2], DOM[3]}
+    pool = [{**it, "depth": 5 if it["category"] in deep else 2} for it in pool]
+
+    picks = select_picks(pool, day_index=0)
+    mains = picks[:3]
+    assert {p["category"] for p in mains if p["region"] == "domestic"} == deep
+
+
+def test_picks_unchanged_when_gate_gave_no_depth():
+    """심도 판정이 없으면 예전 순서 그대로 — 게이트가 죽어도 편성이 흔들리면 안 된다."""
+    pool = _diverse_pool()
+    assert select_picks(pool, day_index=0) == select_picks([{**it} for it in pool], day_index=0)
+    plain = select_picks(pool, day_index=3)
+    lighted = select_picks([{**it, "depth": 2} for it in pool], day_index=3)
+    assert [p["category"] for p in plain] == [p["category"] for p in lighted]
+
+
 def test_select_picks_rotates_across_days():
     """연속한 날이면 선정 분야 집합이 달라진다 (콜드스타트 다양성)."""
     pool = _diverse_pool()
@@ -120,6 +145,74 @@ def test_build_pilot_daily_reuses_same_day_edition(session: Session, monkeypatch
     nl2 = build_pilot_daily(session)
     assert nl2.id == nl1.id  # 재사용
     assert len(session.exec(select(Newsletter.id)).all()) == 1
+
+    # 실린 기사 URL을 남긴다 — 다음 편이 같은 기사를 피하는 근거 (T-024)
+    urls = (nl1.target_filter or {}).get("item_urls") or []
+    assert len(urls) == 5 and all(u.startswith("https://") for u in urls)
+
+
+def test_next_edition_skips_articles_already_sent(session: Session, monkeypatch):
+    """같은 기사가 이틀 연속 나가지 않는다 (T-024).
+
+    심도 우선 정렬을 넣으면서 '분야별 최신 1건'이 만들던 자연스러운 교체가 깨졌다 —
+    심도 높은 기사가 7일 창 내내 자기 분야 맨 앞을 지킨다.
+    """
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
+    _seed_diverse_news(session)
+
+    first = build_pilot_daily(session)
+    used = set((first.target_filter or {}).get("item_urls") or [])
+
+    # 어제 편으로 만들어 오늘 편이 새로 조립되게 한다
+    first.created_at = datetime.now(UTC) - timedelta(days=1)
+    session.add(first)
+    session.commit()
+
+    # 대체 기사를 **더 오래된 것으로** 넣는다. 이래야 배제가 진짜 일하는지 드러난다 —
+    # 새 기사가 더 최신이면 '분야별 최신 1건' 규칙만으로도 교체돼서 테스트가 헛돈다.
+    # 제목은 원본과도, **서로와도** 겹치면 안 된다 — 겹치면 T-009 중복 병합이 먼저 삼켜서
+    # 배제 로직에 도달하지 못한다. 이 테스트가 그 함정에 두 번 빠졌다:
+    # 처음엔 원본과 비슷해서, 다음엔 예비끼리 공통 어절("전혀다른회사 신규발표")이 있어서.
+    spare_titles = "가나다 라마바 사아자 차카타 파하거 너더러 머버서 어저처".split()
+    older = datetime.now(UTC) - timedelta(hours=6)
+    for i, cat in enumerate(DOM + OV):
+        session.add(
+            NewsItem(
+                title=spare_titles[i],
+                url=f"https://news.example.com/spare/{cat}/{i}",
+                summary="요약 " * 40,
+                source="테스트일보",
+                origin="naver" if cat in DOM else "brave",
+                region="domestic" if cat in DOM else "overseas",
+                category=cat,
+                published_at=older,
+                collected_at=older,
+            )
+        )
+    session.commit()
+
+    second = build_pilot_daily(session)
+    assert second.id != first.id
+    again = set((second.target_filter or {}).get("item_urls") or [])
+    assert not (again & used), "어제 실린 기사가 오늘 또 실렸다"
+
+
+def test_thin_pool_keeps_sending_rather_than_starving(session: Session, monkeypatch):
+    """배제하면 꼭지를 못 채우는 날엔 배제를 포기한다 — 발송 자체가 없어지는 게 더 나쁘다."""
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
+    _seed_diverse_news(session)  # 딱 8건 — 5꼭지 쓰고 나면 남는 게 없다
+
+    first = build_pilot_daily(session)
+    first.created_at = datetime.now(UTC) - timedelta(days=1)
+    session.add(first)
+    session.commit()
+
+    second = build_pilot_daily(session)  # 예외 없이 조립돼야 한다
+    assert second.id != first.id
+    used = set((first.target_filter or {}).get("item_urls") or [])
+    again = set((second.target_filter or {}).get("item_urls") or [])
+    assert len(again) == 5
+    assert again & used, "대체할 기사가 없으면 기존 기사를 다시 써서라도 발송한다"
 
 
 # ------------------------------------------------------------ refresh_pilot_stats (AC5)

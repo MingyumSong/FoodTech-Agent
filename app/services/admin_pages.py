@@ -194,8 +194,33 @@ def _add_form(programs: list[str]) -> str:
     )
 
 
+def _sub_form(m: Member) -> str:
+    """구독 상태 토글 (T-025) — 되살리기는 **본인 요청을 받은 뒤** 누르는 버튼이다.
+
+    확인 대화상자에 그 조건을 적어둔다. 동의 없이 되살리면 수신동의 위반이라,
+    실수로 눌리는 것보다 한 번 더 묻는 쪽이 싸다.
+    """
+    on = m.subscribed
+    style = "padding:3px 8px;border:0;border-radius:6px;font-size:11.5px;cursor:pointer;" + (
+        "background:#FEF3E2;color:#B54708;" if on else "background:#E7F4EA;color:#116B35;"
+    )
+    label = "🚫 해지" if on else "↩︎ 되살리기"
+    ask = (
+        f"{_esc(m.name)} 회원의 수신을 해지할까요?"
+        if on
+        else f"{_esc(m.name)} 회원을 다시 구독시킬까요? 본인이 요청한 경우에만 누르세요."
+    )
+    action = f"/admin/members/{m.id}/subscribed"
+    return (
+        f'<form method="post" action="{action}" style="margin:0;" '
+        f"onsubmit=\"return confirm('{ask}');\">"
+        f'<input type="hidden" name="subscribed" value="{"0" if on else "1"}">'
+        f'<button type="submit" style="{style}">{label}</button></form>'
+    )
+
+
 def _member_row(m: Member) -> str:
-    sub = "✅" if m.subscribed else "🚫"
+    sub = _sub_form(m)
     del_btn = (
         "padding:3px 8px;background:#FCE8E8;color:#B42318;border:0;border-radius:6px;"
         "font-size:11.5px;cursor:pointer;"

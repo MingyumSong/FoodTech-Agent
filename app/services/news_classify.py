@@ -170,6 +170,11 @@ def _call_openrouter(
     """배치 1개 LLM 호출 — 재시도 포함. 최종 실패는 예외 전파(호출부가 격리).
 
     system을 바꿔 분류(SYSTEM_PROMPT)와 관련성 게이트(RELEVANCE_GATE_PROMPT)에 재사용한다.
+
+    **temperature=0**: 안 넘기면 모델 기본값이라 같은 입력이 매번 다른 판정을 냈다.
+    2026-08-09 같은 풀(112건)로 두 번 돌린 결과가 drop 31건 vs 13건이었고, 두 번째엔
+    '건설부동산 AX 기업'·'LG CNS 실적' 같이 프롬프트가 명시로 금지한 것들이 통과했다.
+    게이트는 판정 도구라 재현되지 않으면 프롬프트를 고쳐도 고쳤는지 알 수 없다.
     """
     payload = {
         "model": settings.news_classify_model,
@@ -178,6 +183,7 @@ def _call_openrouter(
             {"role": "user", "content": json.dumps(batch, ensure_ascii=False)},
         ],
         "max_tokens": 8000,
+        "temperature": 0,
     }
     headers = {"Authorization": f"Bearer {settings.openrouter_api_key}"}
     resp = None
@@ -214,7 +220,7 @@ def _parse_labels(text: str) -> dict[int, str]:
 # 산업 뉴스인가'를 더 높은 기준으로 재판정한다. 분류 v2가 놓치는 소비자 리스트클·영양 조언·
 # 식품 관련성 애매 케이스(2026-07-27 검수에서 확인)를 build 단계에서 결정적으로 차단.
 RELEVANCE_GATE_PROMPT = """당신은 푸드테크 산업 뉴스레터의 엄격한 게이트키퍼다.
-각 기사를 뉴스레터에 실을지(keep) 뺄지(drop) 판정하라.
+각 기사에 대해 두 가지를 판정하라: 실을지(keep) 뺄지(drop), 그리고 실는다면 심도(depth).
 기본값은 drop이다. 아래 KEEP 조건을 '명백히' 충족할 때만 keep. 조금이라도 애매하면 drop.
 
 KEEP — 아래를 모두 충족할 때만:
@@ -224,7 +230,9 @@ KEEP — 아래를 모두 충족할 때만:
 DROP — 하나라도 해당하면:
 - 소비자 대상 리스트클·'best/top/추천 N선'·모음글·영양/식단 조언 등 독자 서비스성 콘텐츠
   (주제가 식품·업사이클링·친환경이어도, 블로그/추천글 형식이면 산업 뉴스가 아니므로 drop)
-- 행사·축제·전시·문화행사 안내, 지자체 행정·복지·지원사업 소식
+- 행사·축제·전시·문화행사 안내, 지자체 행정·복지·지원사업 소식.
+  **지자체장·의원의 예산 확보·국비 건의·정부 부처 방문·간담회는 예외 없이 drop** —
+  식품 관련 사업이 목록에 끼어 있어도 기사의 주제는 지역 예산이지 푸드테크가 아니다.
 - 의료·제약·치과·바이오 (3D프린팅·바이오 기술이어도 대상이 식품이 아니면 drop)
 - 기업 재무·M&A·실적·주가·노사·지배구조 등 일반 경영 뉴스
 - 백과사전·시세 페이지·포럼 질문·쿠폰·퀴즈, 기술 요소 없는 단순 제품/매장 소개
@@ -232,19 +240,62 @@ DROP — 하나라도 해당하면:
   적용될 수 있다고만 하면 drop (식품 전용임이 분명해야 keep)
 - 학술 논문·저널 연구 요약 (systematic review, "Optimization of ... Parameters",
   Nature/Frontiers/Springer/MDPI 등 저널·연구소 게재물). 뉴스 기사가 아니면 drop.
+- 칼럼·사설·기고·오피니언, 인물 인터뷰(말머리 [인터뷰]·interview·'○○ 대표' 인물 소개),
+  [기획연재]·[특집]·[르포] 같은 연재·기획물.
+  주장·해설·인물 이야기지 '무슨 일이 일어났는가'를 전하는 기사가 아니면 drop.
+
+DEPTH — keep인 항목의 '심도'를 1~5 정수로 매긴다. 뉴스레터의 '메인'(3꼭지)과
+'에피타이저'(2꼭지)를 가르는 값이다. 높을수록 메인에 가깝다.
+- 5 = 산업 판도를 바꾸는 사건. 대규모 투자·인수, 규제·표준 제정, 상용화 첫 사례.
+- 4 = 의미 있는 기술·설비·연구 진전. 업계가 따라 할 만한 실질적 변화가 있다.
+- 3 = 통상적인 산업 뉴스. 사실 전달은 되지만 파급은 제한적이다.
+- 2 = 단신. 업무협약(MOU), 단순 입점·판매 개시, 간담회·현장점검, 지역 단위 소식,
+      인사·수상, 기존 사실의 재정리.
+- 1 = 거의 정보가 없는 홍보성 소식.
+
+**4~5는 인색하게 준다.** 전체의 20%를 넘지 않게 하라 — 메인 자리는 세 칸뿐이다.
+애매하면 3 이하.
 
 예시 판정:
 - "지구를 구하는 착한 스낵 BEST 10 | ○○매거진" → keep=false (소비자 추천 리스트클, 산업 뉴스 아님)
 - "액상 공정을 AI로 실시간 모니터링…화장품·제약·식품 등에 적용" → keep=false (식품 전용 아님)
 - "최고의 식물성 단백질 공급원, 영양사가 추천" → keep=false (독자 대상 식단 조언글)
-- "3D 식품 프린팅 시장 2035년 180억 달러 전망" → keep=true (식품 프린팅 산업 뉴스)
-- "○○식품, 라면 공장에 AI 품질검사 도입" → keep=true (식품 제조 기술 도입 뉴스)
+- "[경제인칼럼] 동네상권 위기의 외식업" → keep=false (칼럼)
+- "○○지사, 기획예산처장관 만나 미래 핵심사업 국비 지원 건의" → keep=false (지자체 예산 활동)
+- "[더벨][interview] 건설부동산 AX 기업 돋보기 — ○○ 대표" → keep=false (인물 인터뷰 + 식품 아님)
+- "삼성·SK·현대차, '40도 시대' 생존 기술 경쟁" → keep=false (대상 산업이 식품이 아님)
+- "국산 NPU 확산에 600억원 투입…피지컬AI 실증" → keep=false (반도체·AI 일반, 식품 아님)
+- "상반기 매출 2.8조 돌파…○○, 남은 숙제는 밸류 재평가" → keep=false (실적·주가 뉴스)
+- "3D 식품 프린팅 시장 2035년 180억 달러 전망" → keep=true, depth=4 (시장 판도)
+- "○○식품, 라면 공장에 AI 품질검사 도입" → keep=true, depth=4 (제조 기술 도입)
+- "aT, 수출지원 간담회 개최" → keep=true, depth=2 (간담회 단신)
+- "○○기업, △△마트에 신제품 입점" → keep=true, depth=2 (단순 입점)
 
-출력은 JSON 배열만. 각 항목에 reason(판정 근거 한 문장)을 먼저 쓰고 keep(true/false):
-[{"id": 0, "reason": "식품 3D프린팅 시장 전망 기사", "keep": true}, ...]"""
+출력은 JSON 배열만. 각 항목에 reason(판정 근거 한 문장)을 먼저 쓰고 keep, 그리고 keep일 때 depth:
+[{"id": 0, "reason": "식품 3D프린팅 시장 전망 기사", "keep": true, "depth": 4},
+ {"id": 1, "reason": "소비자 추천 리스트클", "keep": false}, ...]"""
+
+# 심도 판정 없음(게이트 실패·키 없음)은 0. 정렬에서 '가벼움'과 같은 자리에 둬서
+# 판정이 아예 없으면 기존 순서가 그대로 유지되게 한다.
+DEPTH_NONE = 0
+DEPTH_MIN, DEPTH_MAX = 1, 5
 
 
-def _parse_gate(text: str) -> dict[int, bool]:
+def _depth_of(raw: Any) -> int:
+    """심도 값을 1~5 정수로. 범위 밖·형식 위반은 `DEPTH_NONE`(판정 없음)으로 떨어뜨린다.
+
+    이상한 값을 최저점으로 때우지 않는다 — 호출부가 '판정 실패'와 '가벼운 기사'를
+    구분해야 게이트가 죽었을 때 기존 순서로 되돌아갈 수 있다.
+    """
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return DEPTH_NONE
+    return n if DEPTH_MIN <= n <= DEPTH_MAX else DEPTH_NONE
+
+
+def _parse_gate(text: str) -> dict[int, tuple[bool, int]]:
+    """`{id: (keep, depth)}` — depth 0은 판정 없음."""
     match = re.search(r"\[.*\]", text, re.S)
     if not match:
         return {}
@@ -252,10 +303,10 @@ def _parse_gate(text: str) -> dict[int, bool]:
         rows = json.loads(match.group(0))
     except json.JSONDecodeError:
         return {}
-    out: dict[int, bool] = {}
+    out: dict[int, tuple[bool, int]] = {}
     for row in rows:
         if isinstance(row, dict) and "id" in row and "keep" in row:
-            out[int(row["id"])] = bool(row["keep"])
+            out[int(row["id"])] = (bool(row["keep"]), _depth_of(row.get("depth")))
     return out
 
 
@@ -266,6 +317,9 @@ def filter_foodtech_relevant(
 
     키 없거나 게이트 응답이 아예 비면 보수적으로 전량 통과(발송 자체를 막지 않음).
     개별 항목에 keep=false가 명시되면 탈락시킨다(엄격한 프롬프트가 '애매하면 drop'을 책임).
+
+    통과 항목에는 심도 판정을 `depth` 키로 얹어준다(T-024). **판정이 없으면 키를 안 넣는다** —
+    호출부가 그걸 보고 기존 정렬로 되돌아간다. 원본 dict은 건드리지 않고 복사본을 돌려준다.
     """
     if not settings.openrouter_api_key or not items:
         return list(items), []
@@ -283,7 +337,11 @@ def filter_foodtech_relevant(
         return list(items), []  # 게이트 자체가 실패하면 원본 유지(빈 뉴스레터 방지)
     kept, dropped = [], []
     for i, it in enumerate(items):
-        (kept if verdict.get(i, True) else dropped).append(it)
+        keep, depth = verdict.get(i, (True, DEPTH_NONE))
+        if not keep:
+            dropped.append(it)
+        else:
+            kept.append({**it, "depth": depth} if depth else it)
     return kept, dropped
 
 

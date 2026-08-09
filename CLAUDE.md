@@ -27,10 +27,8 @@ Claude Code는 세션 시작 시 이 파일을 자동으로 읽는다. 200줄 �
 - **참조 구현**: members 수직 슬라이스 (model→migration→service→route→test). 새 기능은 이 패턴을 따른다.
 - **스케줄 작업**: `/jobs/*`(Bearer `JOBS_TOKEN`, 멱등: news-refresh, newsletter-build,
   newsletter-send, **pilot-daily-send**=매일 13:00 KST 발송). 현황판 `GET /admin/status`(Basic, T-010).
-- **발송 카나리**: `daily-send-check.yml` 크론이 매일 09:00 KST Resend 검증 메일 1통 발송
-  (GitHub Secrets: `RESEND_API_KEY`, `CHECK_EMAIL`). 실패 시 Actions 실패 알림 = 발송 경로 이상 신호.
-- **수집 크론**: `news-refresh.yml` — 매일 07:00 KST 배포 앱의 `/jobs/news-refresh` 호출 후
-  `/health/news`로 갱신 검증 (Secrets: `APP_URL`, `JOBS_TOKEN`).
+- **크론**: `daily-send-check.yml`(09:00 KST Resend 카나리 1통 — 실패 = 발송 경로 이상 신호) /
+  `news-refresh.yml`(07:00 KST `/jobs/news-refresh` 후 `/health/news` 검증) / `pilot-daily-send.yml`.
 - **테스트/CI**: pytest + 실제 Postgres(트랜잭션 롤백 픽스처). CI = GitHub Actions(ruff+pyright+pytest).
 - **하네스**: `.claude/rules/` 6개 + 스킬 6종(migrate·seed-data·api-test·deploy-check·ticket-done·add-env) + 훅(ruff 자동포맷, .env·uv.lock 수정차단).
   아키텍처 결정 기록은 `scaffold-spec.md`.
@@ -54,14 +52,12 @@ member_programs + newsletters + send_logs + engagement_events + news_items + pil
    **구글시트는 직원 편집용으로 유지하고 주기적으로 임포트**(임포터가 해당 양식 이미 지원).
    ✅ 보안: 전 테이블 RLS 활성화(T-002b) + Data API 비활성화 — PostgREST 경로 이중 차단.
 
-2. **크롤링은 API/RSS 소스만.** HTML 스크래핑 제외.
+2. **크롤링은 API/RSS 소스만.** HTML 스크래핑 제외. 소스 목록은 결정 9.
    **뉴스 LLM 분류 체계 = 정부 "푸드테크 10대 핵심분야"**: 세포배양식품 / 식물기반식품 / 간편식 /
    식품프린팅 / 스마트제조 / 스마트유통 / 커스터마이징 / 외식 푸드테크 / 업사이클링 / 친환경포장.
-   ✅ 안정성(결과 기반 폴백·재시도·헬스체크)은 T-001로 구현 완료. 소스 목록은 결정 9.
 
-3. **추적은 Resend 웹훅이 1차 수단.** (2026-07-11) ✅ T-003 구현 완료 — `POST /webhooks/resend`(svix
-   서명 검증) → `engagement_events` 멱등 적재, clicked url=원본 기사 URL(캐시 매칭). 상세는 티켓.
-   열람(open)은 프록시 오탐 때문에 보조 신호. 추적 도메인 `links.news.foodtech-center.org` Verified.
+3. **추적은 Resend 웹훅이 1차 수단.** ✅ T-003 — `POST /webhooks/resend`(svix 서명 검증) →
+   `engagement_events` 멱등 적재, clicked url=원본 기사 URL. 열람(open)은 프록시 오탐 때문에 보조 신호.
 
 4. **발송은 4주차에 파일럿으로 조기 시작** — 실데이터로 Activity Score 가중치를 확정한다.
    파일럿 세그먼트는 **100명 이하** — Resend 무료 티어(일 100통) 한도, 본 발송 전 Pro($20/월) 전환.
@@ -78,38 +74,30 @@ member_programs + newsletters + send_logs + engagement_events + news_items + pil
 6. ~~기존 BI(Airtable/Metabase)~~ → **폐기**: 관리 화면은 앱이 서버 렌더로 직접 제공
    (`/admin/*` 5탭 — 현황·회원관리·인기분야·참여도·발송검토).
 
-7. **LLM 호출은 OpenRouter 게이트웨이.** (2026-07-11 노션 동기화) 계정·크레딧은 랩실(희정),
-   키 하나로 Claude/GPT/Gemini 호출. OpenAI 호환 엔드포인트(`https://openrouter.ai/api/v1`).
-   ✅ 키 수령(`.env`의 OPENROUTER_API_KEY), 잔액 $25, **키 한도 $25 설정 완료**(2026-07-12).
-   ✅ **분류 모델 = `google/gemini-2.5-flash`**(T-004 드라이런 — 실뉴스 80건 4모델 비교에서 일치율
-   1위·$0.0077/80건, 월 < $1.5). 탈락 사유는 `docs/research/llm-classification-dryrun.md`.
+7. **LLM 호출은 OpenRouter 게이트웨이.** 계정·크레딧은 랩실(희정), 키 한도 $25 설정 완료.
+   ✅ **분류 모델 = `google/gemini-2.5-flash`**(T-004 드라이런 — 실뉴스 80건 4모델 비교 일치율
+   1위·$0.0077/80건). 탈락 사유는 `docs/research/llm-classification-dryrun.md`.
    **분류 시점 = 수집 시 분류·저장** — 발송 직전 실시간 분류 금지.
-   노션 archive에 키 평문 있음 — 2인 전용 워크스페이스라 **로테이션 불필요 판단**(민겸).
 
-8. **발신 도메인은 발송 전용 서브도메인** — 메인 도메인 평판 보호.
-   ✅ **완료(2026-07-12)**: `foodtech-center.org` 신규 구입(Cloudflare, 희정 계정 — 민겸 접근 가능),
-   `news.foodtech-center.org`를 Resend에 등록, SPF/DKIM/DMARC 인증 **Verified** (리전 Tokyo).
-   관리자 페이지는 `admin.foodtech-center.org` 연결 완료(2026-08-06, DNS-only CNAME).
+8. **발신 도메인은 발송 전용 서브도메인** — 메인 도메인 평판 보호. ✅ `foodtech-center.org`
+   (Cloudflare, 희정 계정), `news.` 를 Resend 등록 SPF/DKIM/DMARC **Verified**(Tokyo),
+   `admin.` 은 관리자 페이지(DNS-only CNAME).
 
-9. **뉴스 수집 소스 확정(2026-07-13)** — 조사 결과·검증된 피드 URL은 `docs/research/news-sources.md`.
-   국내 1차 네이버 뉴스 API + 식품 전문지 RSS 4종 폴백, 해외 Brave(⚠️ **무료 티어 폐지** — 월 $5
-   크레딧, 카드 등록 필요) + 매체 RSS 4종, 학술 OpenAlex + 저널 RSS.
-   카카오(뉴스 미지원)·빅카인즈(유료화) 제외. Google News RSS 링크는 인코딩 리다이렉트 URL이라
-   클릭 추적 집계 시 디코딩 필요(T-003 설계 때 결정).
+9. **뉴스 수집 소스 확정** — 검증된 피드 URL은 `docs/research/news-sources.md`. 국내 네이버 API +
+   식품 전문지 RSS 4종 폴백, 해외 Brave(⚠️ **무료 티어 폐지** — 월 $5) + 매체 RSS 4종, OpenAlex.
+   Google News RSS는 인코딩 리다이렉트 URL이라 클릭 집계 시 디코딩 필요.
 
-10. **뉴스레터 브랜딩 확정(2026-07-13, 희정 컨펌 대기)** — 뉴스레터 **푸디픽**(FOODIE's PICK) ×
-    화자 **푸디**, 발신 `푸디 by 푸드테크센터 <foodie@news.foodtech-center.org>`, 매주 목요일.
-    **코너(T-013 v2)**: 오늘의 분야 줄 → 에피타이저 2 → 메인 3 → 디저트(원클릭 반응 3버튼).
-    현재 시안은 `docs/branding/newsletter-v2.html`(mockup.html은 v1 기록용).
+10. **브랜딩** — **푸디픽**(FOODIE's PICK) × 화자 **푸디**, 발신 `푸디 by 푸드테크센터
+    <foodie@news.foodtech-center.org>`. **코너**: 오늘의 분야 → 에피2 → 메인3 → 디저트(반응 3버튼).
+    시안 `docs/branding/newsletter-v2.html` — **시안이라 여길 고쳐도 메일은 안 바뀐다**(ui-map 참조).
 
-11. **와우 포인트 후보(2026-07-13, 간판 선정 대기)** — `docs/research/wow-features.md`.
-    ✅W1 원클릭 반응(T-013) / W2 AI 푸디 답장(**간판 제안**) / W3 개인 큐레이션 / W4 개인 리캡.
+11. **와우 포인트 후보(간판 선정 대기)** — `docs/research/wow-features.md`. ✅W1 원클릭 반응 /
+    W2 AI 푸디 답장(**간판 제안**) / W3 개인 큐레이션 / W4 개인 리캡.
     ⚠️ 행사 CTA를 넣는 호는 정보통신망법상 "(광고)" 표기 필요 가능 — 법무 확인 대상.
 
-12. **배포 PaaS = Railway**(월 $5 Hobby, 슬립 없음 — 웹훅 수신·크론 호출의 필수 조건).
-    비용 전망: 파일럿 월 $5 → 본 발송 후 월 ~$25(Resend Pro 포함) — 상세는 노션 cost 페이지.
-    **주차 진행 현황(Done/To do)은 노션 `Project ▸ is on track`의 주차 페이지에 기록**
-    (레포 docs 아님 — docs는 티켓·research용). 시크릿은 노션에 평문 저장·복제 금지.
+12. **배포 PaaS = Railway**(월 $5 Hobby, 슬립 없음 — 웹훅 수신·크론 호출의 필수 조건). 비용은
+    파일럿 월 $5 → 본 발송 후 ~$25(Resend Pro 포함), 상세는 노션 cost 페이지. **주차 진행
+    현황(Done/To do)은 노션 `Project ▸ is on track`의 주차 페이지에** (레포 docs는 티켓·research용).
 
 ---
 
@@ -130,21 +118,20 @@ member_programs + newsletters + send_logs + engagement_events + news_items + pil
 T-001·T-006 수집·분류 / T-002 스키마 / T-003 웹훅 / T-005 배포 / T-007 임포터 / T-008 발송 /
 T-010 현황판 / T-011 매일발송 / T-012 관리자 — **전부 DONE·배포·라이브 검증 완료.**
 
-계속 유효한 사실만 추림:
-
 - **배포**: `https://app-production-945c.up.railway.app`, 프로젝트 foodtech-hub / 서비스 app
   (교수님 계정 snupfm@gmail.com). `railway up`으로 배포, 환경변수는 `scripts/railway-env-sync.sh`.
 - **DB**: `.env`의 `SUPABASE_URL`(비밀번호 포함 — 커밋 금지, 접두사 `postgresql+psycopg://`).
   운영 마이그레이션은 `DATABASE_URL="$SUPABASE_URL" uv run alembic upgrade head`.
   **코드보다 먼저 적용할 것** — 새 테이블을 읽는 코드가 먼저 뜨면 조회가 터진다.
 - **회원**: Supabase 3,413명(이메일 94%). 파일럿 `pilot-daily` 25명 = `pilot-lab-1`~`5` 각 5명.
-  A/B에 쓰되 **사전 참여도가 그룹마다 2배 이상 다르다**(평균 1조 24.6 / 4조 23.2 / 5조 17.4 /
-  3조 11.1 / 2조 10.6) → T-016 실험은 대조군을 그냥 고르지 말고 **짝을 맞출 것**.
+  **사전 참여도가 그룹마다 2배 이상 다르다**(1조 24.6 / 4조 23.2 / 5조 17.4 / 3조 11.1 / 2조 10.6)
+  → 실험은 조 단위 배정 금물, **짝을 맞출 것**.
 - **수집**: 네이버 `display` 100, 비대칭 캡(`MAX_DOMESTIC=120`/`MAX_OVERSEAS=40`), 분야 균형
   라운드로빈(`_cap_balanced`). 분류 프롬프트 v3(정부 공식 정의 삽입). **입력은 제목+요약 300자**
-  (본문 스크래핑 안 함). 2차 게이트(`filter_foodtech_relevant`)는 발송 직전 LLM.
+  (본문 스크래핑 안 함). 2차 게이트(`filter_foodtech_relevant`)는 발송 직전 LLM, **temperature=0**.
 - **추적**: 추적 도메인 `links.news.foodtech-center.org`(Resend 추적 기본 OFF라 필수였음).
   clicked url = 원본 기사 URL — 이게 T-016에서 깨질 전제다.
+- **UI 어디를 고치나**: `docs/guide/ui-map.md` (템플릿 파일이 아니라 파이썬 함수가 HTML을 조립).
 - **`pilot_members`**(RLS): 25명 스냅샷+집계. 점수 컬럼은 `refresh_pilot_stats`(**파일럿 경로 전용** —
   본 발송은 안 탄다)가 남기는 **이력 스냅샷일 뿐**. 참여도 탭은 **조회 시점에 재계산**한다.
 
@@ -152,35 +139,48 @@ T-010 현황판 / T-011 매일발송 / T-012 관리자 — **전부 DONE·배포
 
 - ✅ **T-009 기사 큐레이션**(`curation.py`) — 같은 사건 중복이 풀의 13.9%였다. 제목 토큰 자카드
   **0.30**(오검출 시작점 0.28을 실측해 정함). **연쇄 금지** — 묶음기사가 다리가 돼 서로 다른 두 사건이
-  뭉쳤다. 대표와 **직접** 닮은 것만(`cluster_of`). 묶음기사는 풀에서 제외(`is_roundup`).
-  대표는 `source_tier` 0/1/2 — 표시용 `SOURCE_BY_DOMAIN`과 분리한 `PREFERRED_SOURCE_DOMAINS`다.
-  신뢰도는 **필터가 아니다**(매핑률 29%·해외 1/15 → 필터면 굶는다). `NON_NEWS_DOMAINS` 2→40여 개.
-  **T-018 매체명 3건이 한 칸씩 밀려 있었다** — foodnews=식품저널/thinkfood=식품음료신문/
-  foodbank=식품외식경제로 교정. 운영 158 → 123 (제거 35건 22.2%).
-- ⚠️ **T-023 Score 활용 (PARTIAL)** — `/admin/scores.csv?tier=`(Basic, BOM) + 참여도 탭 버튼은 완료.
-  **등급 발송은 메커니즘(`target_filter.tiers`)만 있고 진입점이 없다** — `tiers`를 넘기는 프로덕션
-  코드가 0줄(테스트뿐). 급하지 않아 미룬 것, 티켓 "남은 일" 참조.
-  **대상은 조립 시점에 확정해 `member_ids`로 얼린다** — 발송이 `send_logs`에 무반응 1건을 더해
-  점수를 낮춰 재시도에서 대상이 1→0명이 됐다. 수신거부만 안 얼리고 발송 시점 목록과 교집합.
-- **관리자 도메인 라이브**: `https://admin.foodtech-center.org`. 단 `PUBLIC_BASE_URL`은 **그대로 Railway URL** — 수신거부·반응 링크의 기준이라 바꾸면 기존 메일과 갈린다.
+  뭉쳤다. 대표와 **직접** 닮은 것만(`cluster_of`). 묶음기사는 제외(`is_roundup`). 대표는 `source_tier`
+  0/1/2 — 표시용 `SOURCE_BY_DOMAIN`과 분리한 `PREFERRED_SOURCE_DOMAINS`. 신뢰도는 **필터가 아니다**
+  (매핑률 29%·해외 1/15 → 필터면 굶는다). 운영 158 → 123.
+- ⚠️ **T-023 Score 활용 (PARTIAL)** — CSV 내보내기는 완료, **등급 발송은 메커니즘만 있고 진입점이
+  없다**(`tiers`를 넘기는 프로덕션 코드 0줄). **대상은 조립 시점에 `member_ids`로 얼린다** — 발송이
+  `send_logs`에 무반응 1건을 더해 점수를 낮춰 재시도 대상이 1→0명이 됐다. 수신거부만 발송 시점 교집합.
+- **관리자 도메인 라이브**: `https://admin.foodtech-center.org`. 단 `PUBLIC_BASE_URL`은 **그대로
+  Railway URL** — 수신거부·반응 링크의 기준이라 바꾸면 기존 메일과 갈린다.
 
-## 2026-08-04 세션 (파일럿 수신자 피드백 6건 반영 — T-013~T-018, 전부 배포됨)
+## 2026-08-09 세션 (파일럿 피드백 5건 — T-024·T-025 + 반응 문구·UI 가이드, 전부 배포)
 
-- ✅ **T-013 뉴스레터 v2** — **에피2 + 메인3 + 디저트**, **국내4:해외1**(해외는 메인에),
-  맨 위 "오늘의 분야" 줄. 디저트 = **원클릭 반응 3버튼**: `engagement_events`(`reacted` + payload)라
-  스키마 변경 없고 (회원,편) 멱등, 토큰은 `member.unsubscribe_token` 재사용. 폭은 `max-width`.
-  헤더 아이콘 `app/static/foodie-icon.png`(네이비 `#042A4F`는 에셋 샘플값 — 변경 금지).
-  **답장 버그도 함께 수정**: 발신 도메인에 MX가 없고 `reply_to`도 없어 푸터의 "답장하면 읽습니다"가
-  거짓이었다 → `newsletter_reply_to`(= 교수님 지메일). **잔여: 실제 메일에서 답장 도달 확인.**
-- ✅ **T-014 관리자 발송 설정** — `app_settings`(key/value JSONB, RLS) + 발송검토 탭 폼.
-  **행이 없으면 코드 기본값.** 수신자 상한 100은 일부러 설정에서 제외(결정 4 안전장치).
-- ✅ **T-015 체류 근사** — 원문 체류는 측정 불가(남의 서버). **같은 편 안의 연속 클릭 간격**으로 근사
-  (`dwell.py`, 30분 상한, 편별 마지막 클릭 제외). 인기분야 탭에 "읽은 깊이" 카드.
-  실측: 측정가능 47%, 중앙값 13초, **튕김 24 : 중간 23 : 정독 16** — 절반이 제목만 보고 닫는다.
-- ✅ **T-017 Activity Score + T-019 참여도 탭** — **봇 열람(발송 후 10초) 필터가 실제로 물었다**:
-  9편 전부 즉시 열람이던 1명이 warm→dormant로 뒤집혔다(원시 집계로는 '전편 열람' 우수 회원).
-- ✅ **T-018 매체명** — `news_items` 460건 전부 `source`가 비어 있었다(회귀가 아니라 처음부터).
-  URL 호스트에서 복원 + **도메인 폴백** — 모르면 지어내지 않는다. 460건 백필 완료.
+- ✅ **T-024 메인/에피타이저 = 심도로 가른다.** 근본 원인은 따로 있었다: `_call_openrouter`가
+  **temperature를 안 넘겨** 게이트가 매번 다른 판정을 냈다(같은 풀 112건 → drop 31 vs 13,
+  금지 명시된 건설부동산·실적 기사가 통과). `temperature=0` 고정 후 두 실행이 바이트 동일.
+  심도는 이진(main 70%라 변별 실패) → **1~5 등급**. 게이트가 `depth`를 얹고 `_deep_first`가
+  정렬, 판정 없으면 예전 순서 그대로. 칼럼·기획연재·인물인터뷰·지자체 예산 활동은 drop 추가.
+- ⚠️ **그 정렬이 '기사 회전'을 깼다** — 예전엔 분야별 **최신** 1건이라 새 기사가 어제 걸 밀어냈는데,
+  심도 4는 7일 창 내내 앞자리를 지킨다(D+1·D+2 메인이 동일하게 나옴). → `_drop_already_sent`:
+  지난 편 URL을 `target_filter.item_urls`(기존 JSONB)에 남겨 배제. **풀이 얇으면 배제를 포기**한다.
+- ✅ **T-025 수신거부** — GET이 누르는 즉시 해지시켰다(프리페치·오클릭도 동일). → GET은 확인
+  페이지만, 해지는 POST에서만(RFC 8058 one-click 그대로). **되돌릴 경로가 아예 없었다** →
+  회원관리 탭 토글(`set_subscribed`, 본인 요청 전제 확인창). `subscribed` 변경 시 `updated_at` 기록.
+- ✅ **반응 확인 페이지** — 기록은 멀쩡했는데(회원×편 1행) 화면이 매번 같은 말을 해서 바뀐 줄을
+  몰랐다. 이제 처음/동일/변경을 구분해 말한다(`record_reaction`이 직전 값 반환).
+- ✅ **`docs/guide/ui-map.md`** — "여기여기 만지면 돼요". 템플릿 파일이 아니라 **파이썬 함수가
+  HTML을 조립**하는 구조라 어디를 찾을지 모르는 게 당연했다.
+- **수신거부 회원 1명(id 3995)** — 'bad' 반응 43분 뒤 마지막 클릭, 이후 수신 0.
+  **본인 요청 없이 되살리지 않는다**(수신동의). 관리자 화면에 버튼만 준비돼 있다.
+
+## 2026-08-04 세션 (파일럿 수신자 피드백 6건 — T-013~T-018, 전부 배포·상세는 각 티켓)
+
+- **T-013** 에피2+메인3+디저트, 국내4:해외1. 반응 3버튼은 `engagement_events`(`reacted`)라 스키마
+  변경 없고 (회원,편) 멱등, 토큰은 `unsubscribe_token` 재사용. 헤더 아이콘 `app/static/foodie-icon.png`
+  (네이비 `#042A4F`는 에셋 샘플값 — 변경 금지). 답장 경로는 `newsletter_reply_to`(교수님 지메일)로
+  수정 — **잔여: 실제 메일에서 답장 도달 확인.**
+- **T-014** `app_settings`(JSONB) + 발송검토 탭 폼. **행이 없으면 코드 기본값.** 수신자 상한 100은
+  일부러 설정에서 제외(결정 4 안전장치).
+- **T-015** 체류는 측정 불가라 **같은 편 연속 클릭 간격**으로 근사(`dwell.py`). 실측 측정가능 47%,
+  중앙값 13초, **튕김 24 : 중간 23 : 정독 16** — 절반이 제목만 보고 닫는다.
+- **T-017·T-019** **봇 열람(발송 후 10초) 필터가 실제로 물었다** — 9편 전부 즉시 열람이던 1명이
+  warm→dormant로 뒤집혔다(원시 집계로는 '전편 열람' 우수 회원).
+- **T-018** `news_items` 460건 전부 `source`가 비어 있었다(처음부터). URL 호스트 복원 + 도메인 폴백.
 - **T-016 착지 페이지 = 유일한 미착수.** 시안·A/B 설계 확정, 선결 질문 4개 중 3개 해결(티켓 참조).
   **미해결 = 이탈 비용** — 2주 A/B로 답이 나온다. 단 조 단위 배정은 금물(위 참여도 격차) — **점수
   순위로 5블록×5명 층화 배정 + 회원별 사전/사후 변화로 판정**, 기준선은 실험 시작 전 동결.

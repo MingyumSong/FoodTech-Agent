@@ -182,6 +182,36 @@ def test_relevance_gate_drops_only_flagged(monkeypatch):
     assert [it["url"] for it in dropped] == ["u1"]
 
 
+def test_relevance_gate_attaches_depth(monkeypatch):
+    """심도 판정이 통과 항목에 실려 나온다 (T-024) — 메인/에피타이저를 가르는 근거."""
+
+    def fake(client, batch, system=None):
+        return json.dumps(
+            [
+                {"id": 0, "keep": True, "depth": 5},
+                {"id": 1, "keep": True, "depth": 2},
+            ]
+        )
+
+    monkeypatch.setattr(news_classify, "_call_openrouter", fake)
+    kept, _ = news_classify.filter_foodtech_relevant([_item("u0"), _item("u1")])
+    assert [it["depth"] for it in kept] == [5, 2]
+
+
+def test_relevance_gate_ignores_bogus_depth(monkeypatch):
+    """범위 밖 depth는 '판정 없음'으로 떨어뜨린다 — 최저점으로 때우면 안 된다.
+
+    호출부(`_deep_first`)가 '판정 없음'을 보고 기존 정렬로 되돌아가기 때문이다.
+    """
+
+    def fake(client, batch, system=None):
+        return json.dumps([{"id": 0, "keep": True, "depth": 9}])
+
+    monkeypatch.setattr(news_classify, "_call_openrouter", fake)
+    kept, _ = news_classify.filter_foodtech_relevant([_item("u0")])
+    assert "depth" not in kept[0]
+
+
 def test_relevance_gate_no_key_passes_all(monkeypatch):
     monkeypatch.setattr(settings, "openrouter_api_key", "")
     items = [_item("u0"), _item("u1")]

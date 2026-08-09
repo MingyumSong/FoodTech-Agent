@@ -33,7 +33,7 @@ from app.services.admin_pages import (
     scores_csv,
 )
 from app.services.admin_status import collect_stats, render_status
-from app.services.members import create_member, delete_member
+from app.services.members import create_member, delete_member, get_member, set_subscribed
 from app.services.newsletter import PILOT_MAX_RECIPIENTS, UNSUB_PLACEHOLDER, _recipients
 from app.services.pilot_daily import (
     PILOT_PROGRAM,
@@ -107,6 +107,27 @@ def admin_members_add(
     except ConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     logger.info("admin member added")  # PII는 로그에 남기지 않는다
+    return RedirectResponse("/admin/members", status_code=303)
+
+
+@router.post("/members/{member_id}/subscribed", dependencies=[Depends(require_admin_basic)])
+def admin_members_set_subscribed(
+    member_id: int,
+    subscribed: str = Form(...),
+    session: Session = Depends(get_session),
+) -> RedirectResponse:
+    """구독 상태 되돌리기 (T-025) — 수신거부한 회원이 다시 받고 싶다고 연락해왔을 때의 경로.
+
+    지금까지는 DB를 직접 쓰는 것 말고 방법이 없었다. 되살리기는 **본인 요청이 전제**라
+    일괄 처리 API가 아니라 회원 한 명씩 누르는 버튼으로만 존재한다.
+    """
+    want = subscribed == "1"
+    try:
+        member = get_member(session, member_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if set_subscribed(session, member, subscribed=want):
+        logger.info(f"admin subscription changed: id={member_id} subscribed={want}")
     return RedirectResponse("/admin/members", status_code=303)
 
 

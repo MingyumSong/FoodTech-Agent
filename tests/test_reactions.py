@@ -62,6 +62,28 @@ def test_repeat_clicks_converge_to_last_value(client: TestClient, session: Sessi
     assert (events[0].payload or {})["reaction"] == "ok"
 
 
+def test_page_tells_you_what_actually_changed(client: TestClient, session: Session):
+    """화면이 매번 같은 말을 하면 수신자는 바뀐 줄 모르고 버튼을 계속 눌러본다.
+
+    파일럿 수신자 피드백("버튼 하나 누르고 다른 버튼도 누를 수 있게 되어있음")의 실체가
+    이것이다 — 기록은 멀쩡했고 화면이 결과를 안 비춰줬다.
+    """
+    _member(session, "tok-echo")
+    nl = _newsletter(session)
+
+    first = client.get(f"/reactions/tok-echo/{nl.id}/good").text
+    assert "고맙습니다" in first
+
+    same = client.get(f"/reactions/tok-echo/{nl.id}/good").text
+    assert "이미 기록되어 있어요" in same
+
+    changed = client.get(f"/reactions/tok-echo/{nl.id}/bad").text
+    assert "바꿨습니다" in changed
+    assert "좋았어요" in changed and "별로였어요" in changed  # 무엇에서 무엇으로
+
+    assert len(_events(session)) == 1  # 그래도 행은 하나
+
+
 def test_separate_editions_are_counted_separately(client: TestClient, session: Session):
     """편이 다르면 별개 반응이다 — 매일 발송이라 편별 추이가 지표가 된다."""
     _member(session, "tok-two")

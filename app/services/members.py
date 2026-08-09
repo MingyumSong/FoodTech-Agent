@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlmodel import Session, col, select
 
 from app.lib.errors import ConflictError, NotFoundError
@@ -43,6 +45,23 @@ def create_member(session: Session, data: MemberCreate) -> Member:
     session.commit()
     session.refresh(member)
     return member
+
+
+def set_subscribed(session: Session, member: Member, *, subscribed: bool) -> bool:
+    """구독 상태를 바꾼다. **실제로 바뀐 경우에만** True를 돌려주고 `updated_at`을 남긴다 (T-025).
+
+    수신거부·재구독이 한 곳을 지나게 해서 두 가지를 보장한다:
+    - 멱등 — 같은 값으로 다시 불러도 아무 일도 안 일어난다(로그도 안 남는다).
+    - 시각 기록 — 예전엔 `subscribed`만 바꾸고 `updated_at`을 안 건드려서 "언제 끊겼나"를
+      알 수 없었다. 실제로 회원 3995의 이탈 시점을 3주나 잘못 읽었다.
+    """
+    if member.subscribed == subscribed:
+        return False
+    member.subscribed = subscribed
+    member.updated_at = datetime.now(UTC)
+    session.add(member)
+    session.commit()
+    return True
 
 
 def delete_member(session: Session, member_id: int) -> None:

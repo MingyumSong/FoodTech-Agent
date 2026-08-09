@@ -23,16 +23,34 @@ logger = get_logger("reactions")
 _LABELS = {"good": "좋았어요", "ok": "보통이에요", "bad": "별로였어요"}
 
 
-def _done_html(label: str) -> str:
+def _message(value: str, previous: str | None) -> tuple[str, str]:
+    """(제목, 본문) — 지금 누른 것이 처음인지·같은 것인지·바꾼 것인지 말해준다.
+
+    수신자 피드백: "버튼 하나 누르고 다른 버튼도 누를 수 있게 되어있음".
+    기록은 (회원,편)당 1행으로 수렴하고 있었지만 화면이 매번 똑같은 말을 해서
+    바뀐 줄을 알 수 없었다. 눌린 결과를 그대로 비춰주는 게 고칠 지점이다.
+    """
+    now = _LABELS[value]
+    if previous is None:
+        return "고맙습니다", f"'{now}'로 기록했습니다."
+    if previous == value:
+        return "이미 기록되어 있어요", f"이 편은 '{now}'로 남아 있습니다."
+    return "바꿨습니다", f"'{_LABELS[previous]}' → '{now}'로 바꿨습니다."
+
+
+def _done_html(value: str, previous: str | None) -> str:
+    title, body = _message(value, previous)
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:'Apple SD Gothic Neo',sans-serif;max-width:480px;margin:80px auto;
 text-align:center;color:#16181D;padding:0 20px;">
-<h2 style="color:#1F6FB2;">고맙습니다</h2>
-<p style="color:#4B5563;line-height:1.7;">'{label}'로 기록했습니다.<br>
+<h2 style="color:#1F6FB2;">{title}</h2>
+<p style="color:#4B5563;line-height:1.7;">{body}<br>
 남겨주신 반응이 다음 픽을 고르는 데 쓰입니다.</p>
-<p style="color:#9CA3AF;font-size:13px;">창을 닫으셔도 됩니다.</p>
+<p style="color:#9CA3AF;font-size:13px;line-height:1.7;">
+마음이 바뀌면 메일에서 다른 버튼을 눌러도 됩니다 — 한 편에 하나만, 마지막 것으로 남습니다.<br>
+창을 닫으셔도 됩니다.</p>
 </body></html>"""
 
 
@@ -49,5 +67,5 @@ def react(
     if member is None:
         raise HTTPException(status_code=404, detail="invalid token")
 
-    record_reaction(session, member=member, newsletter_id=newsletter_id, value=value)
-    return _done_html(_LABELS[value])
+    previous = record_reaction(session, member=member, newsletter_id=newsletter_id, value=value)
+    return _done_html(value, previous)

@@ -96,18 +96,28 @@ def ingest_resend_event(session: Session, provider_event_id: str, payload: dict[
 REACTION_VALUES = {"good", "ok", "bad"}
 
 
-def record_reaction(session: Session, *, member: Member, newsletter_id: int, value: str) -> None:
+def record_reaction(
+    session: Session, *, member: Member, newsletter_id: int, value: str
+) -> str | None:
     """반응 1건을 engagement_events에 적재. 같은 회원×같은 편은 1행으로 수렴한다.
 
     멱등 키를 provider_event_id에 직접 만든다(UNIQUE) — 마음이 바뀌어 다시 누르면
     새 행이 쌓이는 게 아니라 마지막 값으로 덮인다. 스키마 변경 없이 event_type + payload로
     해결하려는 설계라 반응값은 payload에 넣는다.
+
+    **직전 값을 돌려준다**(처음이면 None). 화면이 "기록했습니다"만 띄우니까 수신자가
+    바뀐 줄 모르고 버튼을 계속 눌러본다는 피드백이 있었다 — 무엇이 무엇으로 바뀌었는지
+    말해주려면 덮어쓰기 전 값이 필요하다.
     """
     if value not in REACTION_VALUES:
         raise ValueError(f"unknown reaction: {value}")
 
     now = datetime.now(UTC)
     key = f"reaction:{member.id}:{newsletter_id}"
+    prev_row = session.exec(
+        select(EngagementEvent).where(EngagementEvent.provider_event_id == key)
+    ).first()
+    previous = (prev_row.payload or {}).get("reaction") if prev_row else None
     payload = {"reaction": value, "newsletter_id": newsletter_id}
     stmt = (
         pg_insert(EngagementEvent)
@@ -127,4 +137,8 @@ def record_reaction(session: Session, *, member: Member, newsletter_id: int, val
     )
     session.execute(stmt)
     session.commit()
-    logger.info(f"reaction recorded: member_id={member.id} nl={newsletter_id} value={value}")
+    logger.info(
+        f"reaction recorded: member_id={member.id} nl={newsletter_id} "
+        f"value={value} previous={previous}"
+    )
+    return previous if isinstance(previous, str) else None
