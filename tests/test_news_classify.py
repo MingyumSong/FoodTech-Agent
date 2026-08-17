@@ -212,6 +212,55 @@ def test_relevance_gate_ignores_bogus_depth(monkeypatch):
     assert "depth" not in kept[0]
 
 
+def test_relevance_gate_splits_into_batches(monkeypatch):
+    """게이트는 **BATCH_SIZE로 쪼개** 부른다 (T-028) — 통짜로 던지면 판정이 붕괴한다.
+
+    2026-08-17 실측: 같은 풀 117건이 한 번에 가면 drop 0건·심도 전부 3이었고,
+    20건씩 쪼개니 drop 41건·심도 4/3/2로 갈렸다. 프롬프트가 아니라 배치 크기가 원인이다.
+    이 테스트가 지키는 건 '몇 번 부르는가' 하나다 — 그게 판정력을 정하기 때문에.
+    """
+    sizes: list[int] = []
+
+    def fake(client, batch, system=None):
+        sizes.append(len(batch))
+        # id는 청크마다 0부터 다시 매겨진다 — 각 청크의 첫 항목만 drop해 매핑도 함께 검증한다.
+        return json.dumps([{"id": r["id"], "keep": r["id"] != 0} for r in batch])
+
+    monkeypatch.setattr(news_classify, "_call_openrouter", fake)
+    items = [_item(f"u{i}", f"기사 {i}") for i in range(45)]
+    kept, dropped = news_classify.filter_foodtech_relevant(items)
+
+    assert sizes == [20, 20, 5], "BATCH_SIZE(20) 단위로 3번 나눠 불러야 한다"
+    # 청크 지역 색인이 원본으로 제대로 되돌아왔는지 — 각 청크 첫 항목(u0·u20·u40)만 빠진다
+    assert [it["url"] for it in dropped] == ["u0", "u20", "u40"]
+    assert len(kept) == 42
+
+
+def test_relevance_gate_batch_failure_is_isolated(monkeypatch):
+    """청크 하나가 실패해도 그 청크만 전량 통과하고 나머지 판정은 살아남는다."""
+
+    def fake(client, batch, system=None):
+        if batch[0]["title"] == "기사 0":  # 첫 청크만 깨진 응답
+            return "판정 없음"
+        return json.dumps([{"id": r["id"], "keep": False} for r in batch])
+
+    monkeypatch.setattr(news_classify, "_call_openrouter", fake)
+    items = [_item(f"u{i}", f"기사 {i}") for i in range(30)]
+    kept, dropped = news_classify.filter_foodtech_relevant(items)
+
+    assert [it["url"] for it in kept] == [f"u{i}" for i in range(20)]  # 실패한 청크는 살린다
+    assert len(dropped) == 10  # 두 번째 청크는 판정대로 전량 탈락
+
+
+def test_root_url_is_not_an_article():
+    """경로 없는 매체 첫 화면은 기사가 아니다 (T-028) — 실제로 발송에 실려 나갔다."""
+    assert news_classify.is_non_news_url("https://thedieline.com/") is True
+    assert news_classify.is_non_news_url("https://thedieline.com") is True
+    assert news_classify.is_non_news_url("https://thedieline.com/article/ppwr-2026") is False
+    # 쿼리로 글을 가리키는 주소는 진짜 기사다 — 루트 판정이 이걸 잡아먹으면 안 된다.
+    assert news_classify.is_non_news_url("https://example.com/?p=123") is False
+
+
 def test_relevance_gate_no_key_passes_all(monkeypatch):
     monkeypatch.setattr(settings, "openrouter_api_key", "")
     items = [_item("u0"), _item("u1")]

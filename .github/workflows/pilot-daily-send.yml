@@ -2,8 +2,10 @@ name: Pilot daily send
 
 # 매일 13:00 KST(오후 1시)에 배포 앱의 파일럿 매일발송을 트리거한다 (T-011).
 # news-refresh(07:00 KST) 뒤라 그날 수집·분류된 news_items로 조립된다.
-# 조립→발송→통계 롤업은 앱이 백그라운드로 수행하므로 여기선 트리거 수락만 확인한다.
-# 발송 결과 확인은 GET /admin/status(현황판) 또는 Resend 대시보드.
+#
+# **초록불의 뜻이 바뀌었다** (T-028): 예전엔 트리거 수락(202)만 확인해서, 조립이 터져
+# 그날 발송이 통째로 빠져도 초록불이었다. 이제 /jobs/pilot-daily-status 로 **실제 발송**을
+# 확인하고, 트리거는 3회 재시도한다 (2026-08-14 news-refresh가 Railway 일시 404로 실패).
 # 앱 URL은 시크릿 APP_URL, 인증은 시크릿 JOBS_TOKEN (news-refresh와 동일 시크릿 재사용).
 
 on:
@@ -20,11 +22,36 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
           JOBS_TOKEN: ${{ secrets.JOBS_TOKEN }}
         run: |
-          http_code=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
-            -X POST "$APP_URL/jobs/pilot-daily-send" \
-            -H "Authorization: Bearer $JOBS_TOKEN")
-          echo "trigger HTTP $http_code"
-          cat /tmp/resp.json || true
-          if [ "$http_code" -ge 300 ]; then
-            exit 1
-          fi
+          for attempt in 1 2 3; do
+            http_code=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+              -X POST "$APP_URL/jobs/pilot-daily-send" \
+              -H "Authorization: Bearer $JOBS_TOKEN")
+            echo "trigger 시도 $attempt: HTTP $http_code"
+            cat /tmp/resp.json || true
+            echo
+            if [ "$http_code" -lt 300 ]; then
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "❌ 트리거가 3회 모두 실패했다"
+          exit 1
+
+      - name: Verify today's edition was actually sent
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          JOBS_TOKEN: ${{ secrets.JOBS_TOKEN }}
+        run: |
+          # 조립(LLM 게이트 6~7회 호출)+발송(0.6초/명)이 끝날 때까지 대기 (최대 5분)
+          for i in $(seq 1 30); do
+            sleep 10
+            body=$(curl -s "$APP_URL/jobs/pilot-daily-status" \
+              -H "Authorization: Bearer $JOBS_TOKEN")
+            echo "$body"
+            if echo "$body" | jq -e '.ok == true' > /dev/null; then
+              echo "✅ 오늘 편 발송 확인 — $(echo "$body" | jq -r '.sent')통"
+              exit 0
+            fi
+          done
+          echo "❌ 5분 안에 발송이 확인되지 않았다 — Railway 로그에서 조립 실패를 확인할 것"
+          exit 1

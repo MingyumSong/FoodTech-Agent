@@ -74,6 +74,12 @@ NON_NEWS_DOMAINS = {
     "marketresearchreports.com",
     "globemarketresearch.com",
     "techversions.com",
+    "mordorintelligence.com",
+    # 주식 정보·시세 스팸 — 식품 기업명이 걸려 검색에 딸려온다 (2026-08-17 해외 수집분에서 관측)
+    "stocktitan.net",
+    "tickerreport.com",
+    "stockstotrade.com",
+    "themarketsdaily.com",
     # 소셜·커뮤니티
     "tiktok.com",
     "youtube.com",
@@ -160,8 +166,15 @@ SYSTEM_PROMPT = f"""당신은 푸드테크 뉴스 분류기다. 각 기사를 �
 
 
 def is_non_news_url(url: str) -> bool:
-    host = urlparse(url).netloc.lower()
-    return any(host == d or host.endswith("." + d) for d in NON_NEWS_DOMAINS)
+    parsed = urlparse(url)
+    host = parsed.netloc.lower()
+    if any(host == d or host.endswith("." + d) for d in NON_NEWS_DOMAINS):
+        return True
+    # 경로도 쿼리도 없는 주소는 기사가 아니라 **매체 첫 화면**이다 (T-028).
+    # `https://thedieline.com/` 이 그대로 푸디픽 #026의 해외 1꼭지로 나갔다 — 제목이
+    # "DIELINE - The Leading Source for Packaging Innovation"이라 기사처럼 보였다.
+    # 쿼리는 남긴다 — `example.com/?p=123` 같은 워드프레스 주소는 진짜 기사다.
+    return not parsed.path.strip("/") and not parsed.query
 
 
 def _call_openrouter(
@@ -310,10 +323,66 @@ def _parse_gate(text: str) -> dict[int, tuple[bool, int]]:
     return out
 
 
+def _gate_batch(
+    items: list[dict[str, Any]], client: httpx.Client
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """청크 하나를 판정한다 — 실패하면 **그 청크만** 전량 통과(보수적).
+
+    id는 청크 안에서만 유효한 지역 색인이다. 청크마다 0부터 다시 매기므로
+    호출부가 오프셋을 되돌릴 필요가 없다.
+    """
+    batch = [
+        {"id": i, "title": it.get("title") or "", "summary": (it.get("summary") or "")[:300]}
+        for i, it in enumerate(items)
+    ]
+    verdict = _parse_gate(_call_openrouter(client, batch, system=RELEVANCE_GATE_PROMPT))
+    if not verdict:  # 빈/깨진 응답 간헐 재현 대비 1회 재시도 (분류와 동일 방어)
+        verdict = _parse_gate(_call_openrouter(client, batch, system=RELEVANCE_GATE_PROMPT))
+    if not verdict:
+        return list(items), []  # 게이트 자체가 실패하면 원본 유지(빈 뉴스레터 방지)
+
+    kept, dropped = [], []
+    for i, it in enumerate(items):
+        keep, depth = verdict.get(i, (True, DEPTH_NONE))
+        if not keep:
+            dropped.append(it)
+        else:
+            kept.append({**it, "depth": depth} if depth else it)
+    return kept, dropped
+
+
+def _log_gate_verdict(kept: list[dict[str, Any]], dropped: list[dict[str, Any]]) -> None:
+    """게이트가 무엇을 걸렀는지 로그에 남긴다 — 판정을 DB에 안 남기므로 여기가 유일한 기록이다.
+
+    왜 필요한가: 게이트가 조용히 무력화돼도(T-028) 숫자만 보면 '발송 성공'이라 아무도 모른다.
+    같은 입력을 다시 태워도 답이 달라지므로 사후 재구성이 안 된다 — 그 순간의 판정을 남긴다.
+    """
+    depths: dict[int, int] = {}
+    for it in kept:
+        d = it.get("depth")
+        depths[d if isinstance(d, int) else DEPTH_NONE] = (
+            depths.get(d if isinstance(d, int) else DEPTH_NONE, 0) + 1
+        )
+    logger.info(
+        f"gate verdict: keep={len(kept)} drop={len(dropped)} "
+        f"depth={dict(sorted(depths.items(), reverse=True))}"
+    )
+    if not dropped:
+        # drop 0은 정상일 수도, 게이트가 죽은 것일 수도 있다. 풀이 크면 후자가 훨씬 흔하다.
+        logger.warning(f"gate dropped nothing (입력 {len(kept)}건) — 판정력 확인 필요")
+    for it in dropped:
+        logger.info(f"  gate drop: {(it.get('title') or '')[:70]}")
+
+
 def filter_foodtech_relevant(
     items: list[dict[str, Any]], client: httpx.Client | None = None
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """뉴스레터 조립용 2차 게이트 — (통과, 탈락) 반환.
+
+    **`BATCH_SIZE`로 쪼개 호출한다** (T-028). 풀 전체를 한 번에 던지면 판정이 붕괴한다 —
+    2026-08-17 실측으로 같은 풀 117건이 통짜 호출에선 drop 0건·심도 전부 3이었고,
+    20건씩 쪼개니 drop 41건·심도 4/3/2로 갈렸다. 소배치에선 같은 프롬프트가 아파트 분양
+    기사와 매체 첫 화면을 정확히 걸러낸다. 프롬프트가 아니라 **배치 크기가 판정력을 정한다**.
 
     키 없거나 게이트 응답이 아예 비면 보수적으로 전량 통과(발송 자체를 막지 않음).
     개별 항목에 keep=false가 명시되면 탈락시킨다(엄격한 프롬프트가 '애매하면 drop'을 책임).
@@ -326,22 +395,14 @@ def filter_foodtech_relevant(
     if client is None:
         with httpx.Client() as own_client:
             return filter_foodtech_relevant(items, own_client)
-    batch = [
-        {"id": i, "title": it.get("title") or "", "summary": (it.get("summary") or "")[:300]}
-        for i, it in enumerate(items)
-    ]
-    verdict = _parse_gate(_call_openrouter(client, batch, system=RELEVANCE_GATE_PROMPT))
-    if not verdict:  # 빈/깨진 응답 간헐 재현 대비 1회 재시도 (분류와 동일 방어)
-        verdict = _parse_gate(_call_openrouter(client, batch, system=RELEVANCE_GATE_PROMPT))
-    if not verdict:
-        return list(items), []  # 게이트 자체가 실패하면 원본 유지(빈 뉴스레터 방지)
-    kept, dropped = [], []
-    for i, it in enumerate(items):
-        keep, depth = verdict.get(i, (True, DEPTH_NONE))
-        if not keep:
-            dropped.append(it)
-        else:
-            kept.append({**it, "depth": depth} if depth else it)
+
+    kept: list[dict[str, Any]] = []
+    dropped: list[dict[str, Any]] = []
+    for start in range(0, len(items), BATCH_SIZE):
+        k, d = _gate_batch(items[start : start + BATCH_SIZE], client)
+        kept += k
+        dropped += d
+    _log_gate_verdict(kept, dropped)
     return kept, dropped
 
 

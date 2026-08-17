@@ -18,14 +18,22 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
           JOBS_TOKEN: ${{ secrets.JOBS_TOKEN }}
         run: |
-          http_code=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
-            -X POST "$APP_URL/jobs/news-refresh" \
-            -H "Authorization: Bearer $JOBS_TOKEN")
-          echo "trigger HTTP $http_code"
-          if [ "$http_code" -ge 300 ]; then
+          # 재시도하는 이유: 2026-08-14에 Railway가 일시적으로 404
+          # `Application not found`를 돌려줘 그날 수집이 통째로 빠졌다(재배포 중으로 추정).
+          for attempt in 1 2 3; do
+            http_code=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+              -X POST "$APP_URL/jobs/news-refresh" \
+              -H "Authorization: Bearer $JOBS_TOKEN")
+            echo "trigger 시도 $attempt: HTTP $http_code"
+            if [ "$http_code" -lt 300 ]; then
+              exit 0
+            fi
             cat /tmp/resp.json
-            exit 1
-          fi
+            echo
+            sleep 20
+          done
+          echo "❌ 트리거가 3회 모두 실패했다"
+          exit 1
 
       - name: Verify news cache health
         env:

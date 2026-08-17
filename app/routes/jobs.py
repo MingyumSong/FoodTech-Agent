@@ -6,7 +6,7 @@ from app.db import get_session
 from app.lib.logger import get_logger
 from app.services.news import refresh_news_cache
 from app.services.newsletter import build_newsletter, send_newsletter
-from app.services.pilot_daily import run_pilot_daily
+from app.services.pilot_daily import pilot_send_status, run_pilot_daily
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 logger = get_logger("jobs")
@@ -91,3 +91,14 @@ def pilot_daily_send(background: BackgroundTasks) -> dict[str, str]:
     logger.info("jobs/pilot-daily-send triggered")
     background.add_task(run_pilot_daily)
     return {"job": "pilot-daily-send", "status": "accepted"}
+
+
+@router.get("/pilot-daily-status", dependencies=[Depends(require_jobs_token)])
+def pilot_daily_status() -> dict[str, object]:
+    """오늘 편이 실제로 발송됐는지 (T-028) — 크론이 트리거 뒤에 이걸로 결과를 확인한다.
+
+    트리거(202)는 "수락됐다"까지만 뜻한다. 조립이 실패하면 발송이 통째로 빠지는데도
+    크론은 초록불이었다. 판정은 서비스가 하고 여기선 HTTP만 — 발송 현황은 회원 명단과
+    달리 PII가 아니지만, 운영 정보라 JOBS_TOKEN 뒤에 둔다.
+    """
+    return pilot_send_status()

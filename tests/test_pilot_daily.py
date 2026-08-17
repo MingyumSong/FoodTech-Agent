@@ -17,6 +17,7 @@ from app.services.pilot_daily import (
     PILOT_PROGRAM,
     ROTATION_CATEGORIES,
     build_pilot_daily,
+    pilot_send_status,
     refresh_pilot_stats,
     select_picks,
 )
@@ -305,3 +306,48 @@ def test_refresh_pilot_stats_rolls_up_and_is_idempotent(session: Session):
     again = refresh_pilot_stats(session)
     assert again == {"members": 2, "created": 0, "updated": 2}
     assert len(session.exec(select(PilotMember.id)).all()) == 2
+
+
+def test_send_status_reports_no_edition_when_nothing_built(session: Session):
+    """오늘 편이 없으면 실패로 답한다 — 크론이 이걸 보고 빨간불을 켠다 (T-028)."""
+    assert pilot_send_status(session) == {"ok": False, "reason": "no_edition_today", "sent": 0}
+
+
+def test_send_status_distinguishes_built_from_sent(session: Session, monkeypatch):
+    """**조립만 된 편은 성공이 아니다.**
+
+    조용한 실패의 정확한 모양이 이것이다 — 트리거는 202로 수락되고 편은 만들어졌는데
+    발송에서 터진다. 상태가 sent이고 실제로 나간 통수가 있어야 ok다.
+    """
+    monkeypatch.setattr(settings, "openrouter_api_key", "")  # 게이트 전량 통과
+    _seed_diverse_news(session)
+    nl = build_pilot_daily(session)
+    assert nl.id is not None  # commit·refresh 후라 항상 존재
+
+    built = pilot_send_status(session)
+    assert built["ok"] is False and built["newsletter_id"] == nl.id
+
+    session.add(SendLog(newsletter_id=nl.id, member_id=None, email="a@b.c", status="sent"))
+    nl.status = "sent"
+    session.add(nl)
+    session.commit()
+
+    assert pilot_send_status(session)["ok"] is True
+    assert pilot_send_status(session)["sent"] == 1
+
+
+def test_send_status_ignores_failed_logs(session: Session, monkeypatch):
+    """실패한 발송만 있으면 ok가 아니다 — 통수 0인 '발송 완료'는 발송이 아니다."""
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
+    _seed_diverse_news(session)
+    nl = build_pilot_daily(session)
+    assert nl.id is not None
+    nl.status = "sent"
+    session.add(nl)
+    session.add(
+        SendLog(newsletter_id=nl.id, member_id=None, email="a@b.c", status="failed", error="boom")
+    )
+    session.commit()
+
+    status = pilot_send_status(session)
+    assert status["ok"] is False and status["sent"] == 0

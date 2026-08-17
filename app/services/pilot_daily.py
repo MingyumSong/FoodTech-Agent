@@ -426,6 +426,39 @@ def run_pilot_daily(
     return result
 
 
+def pilot_send_status(session: Session | None = None) -> dict[str, Any]:
+    """오늘 파일럿 편이 **실제로 나갔는지** 답한다 — 크론이 트리거 뒤에 확인하는 결과 신호.
+
+    왜 필요한가: `/jobs/*`는 장시간 작업을 BackgroundTasks로 넘기고 202를 즉시 돌려준다(C4).
+    그래서 크론의 초록불은 "트리거가 수락됐다"까지만 뜻하고, 조립이 터져 그날 발송이
+    통째로 빠져도 초록불이다. 2026-08-14 수집 실패(Railway 일시 404)가 그렇게 지나갔다.
+    결과를 물어볼 자리가 있어야 크론 초록불이 "발송됐다"를 뜻하게 된다.
+    """
+    if session is None:
+        with Session(engine) as own:
+            return pilot_send_status(session=own)
+
+    nl = _todays_pilot_newsletter(session)
+    if nl is None or nl.id is None:
+        return {"ok": False, "reason": "no_edition_today", "sent": 0}
+
+    sent = len(
+        [
+            log
+            for log in session.exec(select(SendLog).where(SendLog.newsletter_id == nl.id)).all()
+            if log.status == "sent"
+        ]
+    )
+    ok = nl.status == "sent" and sent > 0
+    return {
+        "ok": ok,
+        "reason": None if ok else f"status={nl.status} sent={sent}",
+        "newsletter_id": nl.id,
+        "status": nl.status,
+        "sent": sent,
+    }
+
+
 def send_reviewed(newsletter_id: int) -> dict[str, Any]:
     """관리자 검토 화면의 [지금 발송]용 — 이미 조립된 편을 발송하고 통계를 롤업(자체 세션).
 
