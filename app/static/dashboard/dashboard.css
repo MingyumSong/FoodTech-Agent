@@ -1,326 +1,941 @@
-/* 푸드테크 대시보드 — 디자인 토큰과 공통 컴포넌트 (T-027 1단계)
+/* 푸드테크 대시보드 스타일
  *
- * 출처: HeejeongH/foodtech-dashboard 의 index.html 에서 **토큰과 컴포넌트 규칙만** 옮겼다.
- * 마크업은 복사하지 않았다 — 저쪽은 Supabase RPC 응답 구조에 맞춰져 있어 우리 데이터에 안 맞는다.
- * 색·간격·반경은 SNU 브랜드(네이비 + 골드)를 그대로 따른다.
+ * ┌─ 출처와 원칙 ────────────────────────────────────────────────────────────┐
+ * │ 출처: HeejeongH/foodtech-dashboard 의 index.html <style> 블록.            │
+ * │                                                                          │
+ * │ **1·2·3부는 원본에서 값을 하나도 안 고치고 그대로 옮긴 것이다.**          │
+ * │ 색·간격·반경·폰트를 눈대중으로 다시 지으면 개별 값은 그럴듯해도 합쳐진   │
+ * │ 인상이 완전히 달라진다(실제로 한 번 그렇게 갈라졌다). 고치지 말 것.      │
+ * │ 클래스 이름도 원본을 따른다 — 랩실이 원본 index.html 을 보며 Events·     │
+ * │ Programs 섹션을 만들 때 이름이 맞아야 그대로 따라 쓸 수 있다.            │
+ * │                                                                          │
+ * │ 4부만 우리 것이다(원본에 짝이 없는 컴포넌트). 새 색을 만들지 않고        │
+ * │ 원본 토큰(--danger-500 등)으로만 정의한다.                               │
+ * └──────────────────────────────────────────────────────────────────────────┘
  *
- * 값을 바꾸려면 :root 의 토큰 한 곳만 고친다. 컴포넌트는 토큰을 통해서만 색을 쓴다.
- * 이 파일에 하드코딩된 색이 늘어나면 나중에 테마를 못 바꾼다.
+ * 원본에는 테마가 두 겹 있다. 전역 :root + 범용 컴포넌트(1·2부)와
+ * `.snu-hero-page` 스코프(3부)다. **대시보드 화면의 디자인은 3부**이고
+ * 3부가 1부 토큰을 참조하므로 둘 다 필요하다. 한쪽만 가져오면 색이 안 맞는다.
+ *
+ * 가져오지 않은 원본 규칙: 도넛·캘린더·AI 챗·program-card·event-card·
+ * breadcrumb·autocomplete — 이 화면에 없는 요소들이다. 필요해지면 원본에서 뜬다.
  */
 
+/* ==========================================================================
+ * 1부 — 원본 전역 토큰 (그대로)
+ * ========================================================================== */
+
 :root {
-  /* 바탕 — SNU 네이비 계열 */
-  --bg: #0b122c;
-  --bg-2: #080f24;
-  --card: #161d40;
-  --card-2: #1e2650;
-
-  /* 글자 — 파랑 쪽으로 치우친 중립색(순수 회색은 이 바탕에서 탁해 보인다) */
-  --ink: #e6eaf6;
-  --ink-2: #b8bce0;
-  --ink-3: #8288b5;
-  --line: #26305c;
-  --line-2: #35407a;
-
-  /* 강조 */
-  --gold: #ffd338;
-  --gold-soft: #ffe580;
-  --gold-wash: rgba(255, 211, 56, 0.06);
-  --brand: #6aaef0;
-  --brand-wash: rgba(106, 174, 240, 0.12);
-
-  /* 의미색 — 강조색과 별개다. 상태를 나타낼 때만 쓴다. */
-  --ok: #4ec99a;
-  --warn: #e0a34a;
-  --danger: #ff8a80;
-
+  /* ── WFT26 ConfEx 색상 팔레트 ── */
+  --ink-025: rgba(154, 124, 194, 0.04);
+  --ink-050: #f0f0f8;
+  --ink-100: #ddddf0;
+  --ink-200: #b8b8d8;
+  --ink-300: #8888bb;
+  --ink-500: #6666a0;
+  --ink-600: #4a4a88;
+  --ink-700: #2e2e6e;
+  --ink-800: #1a1a50;
+  --ink-900: #0b122c;
+  --brand-500: #005cb9; /* WFTC 메인 블루 */
+  --brand-600: #0050a3;
+  --brand-700: #003d80;
+  --accent-gold: #ffd338; /* WFT 골드 액센트 */
+  --accent-purple: #9a7cc2; /* 퍼플 서브 */
+  --accent-coral: #ff6d64; /* 버튼 코랄 */
+  --success-500: #10b981;
+  --success-700: #047857;
+  --warn-500: #d97706;
+  --warn-700: #a16207;
+  --danger-500: #ef4444;
+  --bg: #0e1535; /* 딥 다크 네이비 */
+  --bg-card: #161d40; /* 카드 다크 */
+  --bg-card-light: #1e2650;
+  --shadow-card:
+    0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
   --r-sm: 6px;
-  --r: 10px;
-  --r-lg: 14px;
-
+  --r-md: 10px;
   --s-xs: 4px;
   --s-sm: 8px;
   --s-md: 16px;
   --s-lg: 24px;
   --s-xl: 32px;
-
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
-  --wrap: 1180px;
-
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Pretendard, "Apple SD Gothic Neo",
-    "Noto Sans KR", sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-}
-
-* {
-  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: 15px;
-  line-height: 1.65;
-  -webkit-font-smoothing: antialiased;
+  color: #e0e4f0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", "Noto Sans KR", sans-serif;
+  font-size: 14px;
 }
 
-a {
-  color: var(--brand);
+.t-body {
+  font-size: 14px;
+  color: #9090b8;
+}
+.t-small {
+  font-size: 12px;
+}
+.t-micro {
+  font-size: 11px;
+  color: #7878a8;
+  letter-spacing: 0.04em;
 }
 
-.wrap {
-  max-width: var(--wrap);
-  margin: 0 auto;
-  padding: 0 var(--s-lg);
+/* ==========================================================================
+ * 2부 — 원본 범용 컴포넌트 (그대로)
+ * ========================================================================== */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-card);
+  border-radius: var(--r-md, 8px);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(154, 124, 194, 0.15);
 }
-
-/* ---------------------------------------------------------------- 개발 모드 배너
- * 인증이 꺼져 있다는 사실은 눈에 띄어야 한다. 예쁘게 만들지 않는다.
- */
-
-.dev-banner {
-  background: var(--warn);
-  color: #221500;
-  font-size: 13px;
-  font-weight: 700;
-  text-align: center;
-  padding: 9px 16px;
-  line-height: 1.5;
-}
-
-/* ---------------------------------------------------------------- 히어로 */
-
-.hero {
-  background: linear-gradient(160deg, var(--bg-2) 0%, var(--bg) 55%, #101a44 100%);
-  border-bottom: 1px solid var(--line);
-  padding: 56px 0 40px;
-}
-
-.hero .eyebrow {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.16em;
+.data-table th {
+  text-align: left;
+  padding: 12px 14px;
+  background: rgba(154, 124, 194, 0.1);
+  font-size: 12px;
+  font-weight: 600;
+  color: #9a7cc2;
+  border-bottom: 1px solid rgba(154, 124, 194, 0.2);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-3);
-  margin: 0 0 12px;
+}
+.data-table td {
+  padding: 12px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: #c8cce8;
+}
+.data-table tr:hover td {
+  background: rgba(154, 124, 194, 0.07);
 }
 
-.hero h1 {
-  font-size: clamp(28px, 4.5vw, 42px);
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  margin: 0 0 10px;
-  text-wrap: balance;
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--r-md, 8px);
 }
 
-.hero p.sub {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: 15px;
-  max-width: 62ch;
-}
-
-/* ---------------------------------------------------------------- 섹션 */
-
-.section {
-  padding: 52px 0 0;
-}
-
-.section:last-of-type {
-  padding-bottom: 72px;
-}
-
-.section-head {
+/* 폼 — 원본은 .filter-bar 와 .form-* 가 같은 입력 스타일을 공유한다.
+ * (원본 125행 placeholder 색이 `#5555888` 8자리라 무효였다 → `#555588`. 유일한 수정.) */
+.filter-bar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--s-md);
-  margin-bottom: var(--s-lg);
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
-
-.section-title {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  font-size: 23px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin: 0 0 4px;
-}
-
-/* 01·02 번호는 장식이 아니라 대시보드가 실제로 쓰는 순서 표기다 */
-.section-title .num {
-  font-family: var(--mono);
+.filter-bar input,
+.filter-bar select,
+.form-input,
+.form-select,
+.form-textarea {
+  padding: 8px 12px;
+  border: 1px solid rgba(154, 124, 194, 0.25);
+  border-radius: var(--r-sm, 6px);
   font-size: 13px;
-  font-weight: 700;
-  color: var(--ink-3);
-  letter-spacing: 0.04em;
+  background: #1e2650;
+  color: #e0e4f0;
+  font-family: inherit;
+}
+.filter-bar input::placeholder,
+.form-input::placeholder {
+  color: #555588;
+}
+.filter-bar input:focus,
+.filter-bar select:focus,
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #9a7cc2;
+  box-shadow: 0 0 0 3px rgba(154, 124, 194, 0.15);
+}
+.filter-bar .count-badge {
+  padding: 6px 12px;
+  background: rgba(154, 124, 194, 0.15);
+  border: 1px solid rgba(154, 124, 194, 0.25);
+  border-radius: 999px;
+  font-size: 12px;
+  color: #9a7cc2;
+  font-weight: 500;
 }
 
-.section-sub {
-  margin: 0;
-  color: var(--ink-3);
-  font-size: 13.5px;
-}
-
-.section-actions {
-  display: flex;
-  gap: var(--s-sm);
-  align-items: center;
-}
-
-/* ---------------------------------------------------------------- 판·카드 */
-
-.panel {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow);
-  padding: 20px 22px;
-}
-
-/* 자간은 0.12em이 라틴 대문자엔 어울리지만 한글엔 과하게 벌어진다("인 기  분 야").
- * 이 화면 제목은 대부분 한글이라 낮춰 잡는다. */
-.panel-title {
-  font-family: var(--mono);
-  font-size: 11.5px;
+.form-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #9a7cc2;
+  margin-bottom: 4px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--ink-3);
-  margin: 0 0 var(--s-md);
 }
-
-.cols {
-  display: grid;
-  grid-template-columns: 1.55fr 1fr;
-  gap: var(--s-md);
-  align-items: start;
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  box-sizing: border-box;
 }
-
-.stack {
+.form-actions {
   display: flex;
-  flex-direction: column;
-  gap: var(--s-md);
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.form-hint {
+  font-size: 11px;
+  color: #7878a8;
+  margin-top: 4px;
 }
 
-/* ---------------------------------------------------------------- KPI */
+/* 등급 칩은 이걸 쓴다 — 다섯 등급에 다섯 변종이 1:1로 맞는다(4부 매핑 주석 참고) */
+.status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.status-joined {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.status-none {
+  background: rgba(255, 255, 255, 0.06);
+  color: #8888bb;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.status-pending {
+  background: rgba(255, 211, 56, 0.15);
+  color: #ffd338;
+  border: 1px solid rgba(255, 211, 56, 0.25);
+}
+.status-scheduled {
+  background: rgba(0, 92, 185, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(0, 92, 185, 0.3);
+}
+.status-cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
 
-.kpis {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+.empty-msg {
+  padding: 40px;
+  text-align: center;
+  color: var(--ink-500);
+  font-size: 14px;
+  background: var(--bg-card);
+  border-radius: var(--r-md, 8px);
+  box-shadow: var(--shadow-card);
+}
+.empty-msg .cta {
+  margin-top: 12px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--r-sm, 6px);
+  border: 1px solid rgba(154, 124, 194, 0.3);
+  background: rgba(154, 124, 194, 0.1);
+  color: #c8cce8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+  font-family: inherit;
+}
+.btn:hover {
+  background: rgba(154, 124, 194, 0.2);
+}
+.btn-primary {
+  background: linear-gradient(90deg, #ff6d64 0%, #ffd338 100%);
+  color: #0b122c;
+  border-color: transparent;
+  font-weight: 600;
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+.btn-ghost {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #c8cce8;
+}
+
+/* ==========================================================================
+ * 3부 — 원본 `.snu-hero-page` 스코프 테마 (그대로)
+ *
+ * 이 화면의 디자인은 사실상 전부 여기다. 페이지 전체를 이 클래스로 감싸므로
+ * --snu-* 변수가 모달까지 닿는다.
+ * ========================================================================== */
+
+.snu-hero-page {
+  --snu-navy: #0b122c; /* 딥 다크 배경 */
+  --snu-navy-2: #0e1535;
+  --snu-navy-3: #080f24;
+  --snu-gold: #ffd338; /* WFT 골드 */
+  --snu-gold-soft: #ffe580;
+  --snu-cream: #f0f0f8;
+  --snu-ink: #e0e4f0;
+  --snu-ink-2: #b8bce0;
+  --snu-ink-3: #8888bb;
+  --snu-line: rgba(154, 124, 194, 0.2);
+  --snu-line-2: rgba(154, 124, 194, 0.12);
+  --snu-surface: #0e1535;
+  --snu-surface-2: #161d40;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", "Noto Sans KR", sans-serif;
+  color: var(--snu-ink);
+  width: 100%;
+}
+.snu-hero-page * {
+  box-sizing: border-box;
+}
+
+/* ---- Hero ---- */
+.snu-hero {
+  background:
+    radial-gradient(ellipse 70% 50% at 80% 20%, rgba(154, 124, 194, 0.25), transparent 55%),
+    radial-gradient(ellipse 50% 60% at 10% 80%, rgba(0, 92, 185, 0.2), transparent 55%),
+    radial-gradient(ellipse 40% 40% at 90% 90%, rgba(255, 109, 100, 0.12), transparent 50%),
+    linear-gradient(135deg, #080f24 0%, #0b122c 50%, #0d1540 100%);
+  color: #fff;
+  padding: 44px 40px 56px;
+  position: relative;
   overflow: hidden;
 }
-
-.kpi {
-  background: var(--card);
-  padding: 18px 20px;
+.snu-hero::before {
+  /* subtle grid pattern */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+}
+.snu-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+.snu-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9a7cc2;
+  margin-bottom: 20px;
+}
+.snu-eyebrow::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: #9a7cc2;
+}
+.snu-hero h1.snu-headline {
+  margin: 0 0 12px;
+  font-size: clamp(30px, 4vw, 46px);
+  line-height: 1.12;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  max-width: 720px;
+  text-wrap: pretty;
+}
+.snu-hero h1.snu-headline .accent {
+  color: var(--snu-gold-soft);
+}
+.snu-hero .snu-lead {
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+  max-width: 620px;
+  margin: 0 0 32px;
 }
 
-.kpi .v {
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+/* Hero pipeline: the star of the page */
+.snu-pipeline {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 24px 28px 20px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.snu-pipeline-title {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+.snu-pipeline-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+.snu-stage {
+  position: relative;
+  padding: 6px 4px 4px 0;
+}
+.snu-stage-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.snu-stage-value {
+  font-size: 30px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.snu-stage-value .unit {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.55);
+}
+.snu-stage.final .snu-stage-value {
+  color: var(--snu-gold-soft);
+}
+
+/* 원본의 단계 연결 화살표(`.snu-stage + .snu-stage::before { content: "→" }`)와
+ * 비율 막대(`.snu-stage-bar`)는 **의도적으로 가져오지 않았다.** 원본은 가입 깔때기라
+ * 단계가 이어지고 한 단위로 비율이 성립하지만, 우리가 넣는 넷(편·명·건·초)은
+ * 단위가 다르고 인과도 없다. 화살표와 막대를 그리면 없는 관계를 그리는 거짓말이 된다.
+ * 깔때기 데이터가 생기면 원본에서 그 두 규칙을 그대로 뜨면 된다. */
+
+/* CTAs under hero */
+.snu-hero-ctas {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.snu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s, border-color 0.12s;
+  font-family: inherit;
+}
+.snu-btn-primary {
+  background: linear-gradient(90deg, #ff6d64 0%, #ffd338 100%);
+  color: #0b122c;
+}
+.snu-btn-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.snu-btn-ghost {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.snu-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.snu-btn-arrow::after {
+  content: "→";
+}
+
+/* ---- Content sections below hero ---- */
+.snu-content {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 56px 40px 48px;
+  background: var(--snu-surface);
+}
+.snu-section {
+  margin-bottom: 56px;
+}
+.snu-section:last-child {
+  margin-bottom: 0;
+}
+
+.snu-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.snu-section-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #e0e4f0;
+  margin: 0;
+}
+.snu-section-title .num {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9a7cc2;
+  margin-right: 12px;
+  letter-spacing: 0.12em;
+  vertical-align: middle;
+  transform: translateY(-2px);
+}
+.snu-section-sub {
+  font-size: 14px;
+  color: var(--snu-ink-3);
+  margin: 6px 0 0;
+}
+.snu-section-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--snu-navy);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.snu-section-link:hover {
+  color: var(--snu-gold);
+}
+
+/* Stat grid */
+.snu-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0;
+  border: 1px solid var(--snu-line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--snu-surface);
+}
+.snu-stat {
+  padding: 24px 28px;
+  border-right: 1px solid var(--snu-line);
+  cursor: pointer;
+  transition: background 0.12s;
+  position: relative;
+}
+.snu-stat:last-child {
+  border-right: none;
+}
+.snu-stat:hover {
+  background: var(--snu-surface-2);
+}
+.snu-stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--snu-ink-3);
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.snu-stat-value {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--snu-ink);
+}
+.snu-stat-sub {
+  font-size: 12px;
+  color: var(--snu-ink-3);
+  margin-top: 8px;
+}
+@media (max-width: 700px) {
+  .snu-stat {
+    border-right: none;
+    border-bottom: 1px solid var(--snu-line);
+  }
+  .snu-stat:last-child {
+    border-bottom: none;
+  }
+}
+
+/* Events section: 2-column layout */
+.snu-events-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 900px) {
+  .snu-events-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.snu-top-presenters {
+  background: var(--snu-navy);
+  color: #fff;
+  border-radius: 12px;
+  padding: 24px 26px;
+  position: relative;
+  overflow: hidden;
+}
+.snu-top-presenters::before {
+  content: "";
+  position: absolute;
+  top: -30%;
+  right: -20%;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(212, 160, 23, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+.snu-top-title {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--snu-gold-soft);
+  margin: 0 0 18px;
+  font-weight: 600;
+  position: relative;
+}
+.snu-presenter {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.12s;
+}
+.snu-presenter:last-child {
+  border-bottom: none;
+}
+.snu-presenter:hover {
+  transform: translateX(2px);
+}
+.snu-presenter .rank {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--snu-gold-soft);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+.snu-presenter .info .name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.snu-presenter .info .org {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 2px;
+}
+.snu-presenter .count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--snu-gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+.snu-presenter .count .u {
+  font-size: 10px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.55);
+  margin-left: 2px;
+}
+
+/* Two-column detail row */
+.snu-detail-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 900px) {
+  .snu-detail-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.snu-panel {
+  background: var(--snu-surface);
+  border: 1px solid var(--snu-line);
+  border-radius: 12px;
+  padding: 24px 26px;
+}
+.snu-panel-title {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--snu-ink-3);
+  margin: 0 0 18px;
+  font-weight: 600;
+}
+
+.snu-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.snu-modal-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.snu-modal-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.6;
+  padding: 4px;
+}
+.snu-modal-close:hover {
+  opacity: 1;
+}
+
+.snu-hbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 13px;
+}
+.snu-hbar-row .lbl {
+  width: 100px;
+  flex-shrink: 0;
+  color: var(--snu-ink-3);
+}
+.snu-hbar-row .bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.snu-hbar-row .bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand-500), var(--accent-gold));
+  border-radius: 4px;
+}
+.snu-hbar-row .n {
+  width: 28px;
+  text-align: right;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.kpi .v .u {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink-3);
-  margin-left: 3px;
+@media (prefers-reduced-motion: no-preference) {
+  .snu-hero-inner > * {
+    animation: snu-fade-in 0.5s ease both;
+  }
+  .snu-hero .snu-eyebrow {
+    animation-delay: 0.04s;
+  }
+  .snu-hero h1 {
+    animation-delay: 0.12s;
+  }
+  .snu-hero .snu-lead {
+    animation-delay: 0.18s;
+  }
+  .snu-pipeline {
+    animation-delay: 0.24s;
+  }
+  .snu-hero-ctas {
+    animation-delay: 0.32s;
+  }
+  @keyframes snu-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
-.kpi .k {
-  font-size: 12.5px;
-  color: var(--ink-3);
-  margin-top: 3px;
+/* 팝오버 — 머리·닫기·본문·액션의 시각 언어는 원본 그대로다.
+ * **폭과 위치만 4부에서 덮는다**: 원본 .snu-popover 는 width:min(440px,…) 짜리
+ * 앵커 팝오버라 6열 회원 표가 안 들어간다. 우리는 중앙 정렬 다이얼로그로 쓴다. */
+.snu-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 20, 40, 0.35);
+  z-index: 900;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
-
-/* ---------------------------------------------------------------- 버튼 */
-
-.btn {
-  font: inherit;
-  font-size: 13px;
+.snu-popover {
+  background: var(--snu-surface);
+  border-radius: 14px;
+  box-shadow: 0 24px 56px rgba(0, 20, 40, 0.25);
+  overflow: hidden;
+}
+.snu-popover-header {
+  background: linear-gradient(135deg, var(--snu-navy) 0%, var(--snu-navy-2) 100%);
+  color: #fff;
+  padding: 20px 24px 16px;
+  position: relative;
+}
+.snu-popover-header h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
   font-weight: 700;
-  padding: 9px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--line-2);
-  background: transparent;
-  color: var(--ink);
+  line-height: 1.3;
+}
+.snu-popover-header .meta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+.snu-popover-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
   cursor: pointer;
-  white-space: nowrap;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s;
+}
+.snu-popover-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.snu-popover-body {
+  padding: 18px 24px 22px;
+}
+.snu-popover-actions {
+  display: flex;
+  gap: 10px;
+  padding: 12px 24px 20px;
+  justify-content: flex-end;
+  background: var(--snu-surface-2);
+  border-top: 1px solid var(--snu-line);
 }
 
-.btn:hover {
-  border-color: var(--ink-3);
+/* ==========================================================================
+ * 4부 — 우리 것 (원본에 짝이 없는 컴포넌트)
+ *
+ * 여기서도 **새 색을 만들지 않는다** — 1·3부 토큰만 쓴다. 하드코딩한 색이 늘면
+ * 나중에 테마를 못 바꾼다. 원본에 짝이 생기면 이 블록에서 지우고 위로 옮긴다.
+ *
+ * 등급 칩 매핑(dashboard.js 의 tierChip): 원본 .status-* 를 그대로 쓴다.
+ *   active → .status-joined(초록) / warm → .status-pending(골드)
+ *   dormant → .status-none(회색) / unknown → .status-scheduled(파랑, 판단 보류)
+ *   unsubscribed → .status-cancelled(빨강)
+ * ========================================================================== */
+
+/* 팝오버를 중앙 정렬 다이얼로그로 쓰기 위한 덮어쓰기 (위 주석 참고) */
+.snu-popover-backdrop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5vh 16px;
+  overflow-y: auto;
+}
+.snu-popover {
+  width: min(1000px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+.snu-popover-body {
+  overflow-y: auto;
 }
 
-.btn-primary {
-  background: var(--gold);
-  border-color: var(--gold);
-  color: #2a2100;
+/* 인라인 알림. 원본 .toast 와는 다른 물건이다 — 원본은 우하단에 떠서 사라지는
+ * position:fixed 토스트고, 이건 모달 본문 맨 위에 남는 배너다. 이름을 겹치게 두면
+ * 원본 규칙이 덮어써서 안내가 통째로 안 보인다(실제로 그럴 뻔했다). */
+.alert {
+  margin-bottom: var(--s-md);
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  border: 1px solid var(--snu-line);
+  background: var(--snu-surface-2);
+}
+.alert-ok {
+  color: var(--success-500);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+.alert-bad {
+  color: var(--danger-500);
+  border-color: rgba(239, 68, 68, 0.45);
 }
 
-.btn-primary:hover {
-  background: var(--gold-soft);
-  border-color: var(--gold-soft);
+/* 히어로 카드 각 칸의 집계 범위. 구독자는 전체 3,400여 명이고 참여율은 파일럿
+ * 25명 기준이다 — 범위 없이 나란히 놓으면 거짓말이 된다(T-027에서 나온 결론). */
+.snu-stage-note {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 6px;
+  line-height: 1.45;
 }
 
-.btn:focus-visible,
-a:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
-}
-
-/* ---------------------------------------------------------------- 상태 */
-
-/* 아직 아무도 안 만든 섹션. 형태를 Newsletter와 같게 두어 무엇이 들어올 자리인지 보이게 한다. */
+/* 아직 아무도 안 만든 섹션. 형태를 Newsletter 와 같게 두어 무엇이 들어올 자리인지 보이게 한다. */
 .placeholder {
-  border: 1px dashed var(--line-2);
-  border-radius: var(--r-lg);
+  border: 1px dashed var(--snu-line);
+  border-radius: 12px;
   padding: 40px 24px;
   text-align: center;
-  color: var(--ink-3);
+  color: var(--snu-ink-3);
 }
-
 .placeholder .who {
   display: inline-block;
   font-size: 11.5px;
   font-weight: 700;
-  border: 1px dashed var(--line-2);
+  border: 1px dashed var(--snu-line);
   border-radius: 999px;
   padding: 4px 12px;
   margin-bottom: 12px;
 }
-
 /* 우리가 곧 채우는 자리. 남이 채울 자리와 형태로 구분한다 — 페이지만 봐도 계획이 읽힌다. */
 .placeholder.next {
-  border-color: var(--gold);
-  background: var(--gold-wash);
-  color: var(--ink-2);
+  border-color: var(--snu-gold);
+  background: rgba(255, 211, 56, 0.06);
+  color: var(--snu-ink-2);
 }
-
 .placeholder.next .who {
   border-style: solid;
-  border-color: var(--gold);
-  color: var(--gold);
+  border-color: var(--snu-gold);
+  color: var(--snu-gold);
 }
-
-/* 힌트는 공백 없는 긴 파일 경로다 — 좁은 화면에서 안 쪼개지면 페이지를 옆으로 민다.
- * (헤드리스 크롬은 창을 500px 밑으로 못 줄여서 실제 폰 폭에서는 검증하지 못했다.
- *  실기기나 브라우저 기기 모드로 한 번 확인할 것.) */
+/* 힌트는 공백 없는 긴 파일 경로다 — 좁은 화면에서 안 쪼개지면 페이지를 옆으로 민다. */
 .placeholder .hint {
-  font-family: var(--mono);
   font-size: 11.5px;
-  color: var(--ink-3);
+  color: var(--snu-ink-3);
   margin-top: 10px;
   opacity: 0.85;
   overflow-wrap: anywhere;
@@ -329,22 +944,21 @@ a:focus-visible {
 .state {
   padding: 28px 24px;
   text-align: center;
-  color: var(--ink-3);
+  color: var(--snu-ink-3);
   font-size: 13.5px;
 }
-
 .state.error {
-  color: var(--danger);
+  color: var(--danger-500);
 }
 
 /* 로딩 중임을 형태로도 알린다 — 숫자 자리가 비어 있는 것과 구분되어야 한다 */
 .skeleton {
   height: 8px;
   border-radius: 4px;
-  background: var(--card-2);
+  background: var(--snu-surface-2);
   animation: pulse 1.4s ease-in-out infinite;
+  margin-bottom: var(--s-sm);
 }
-
 @keyframes pulse {
   0%,
   100% {
@@ -355,268 +969,18 @@ a:focus-visible {
   }
 }
 
-/* ---------------------------------------------------------------- 가로 막대
- * 길이는 최댓값 대비 비율이다. 축이 0에서 시작하므로 길이를 그대로 비교해도 된다.
- */
-
-.hbar {
-  display: grid;
-  grid-template-columns: minmax(78px, 26%) 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 0;
+/* 개발 모드 배너 — 인증이 꺼진 상태를 화면에서 숨기지 않는다 */
+.dev-banner {
+  background: var(--warn-500);
+  color: #221500;
   font-size: 13px;
-}
-
-.hbar .lbl {
-  color: var(--ink-2);
-  overflow-wrap: anywhere;
-}
-
-.hbar .track {
-  background: var(--card-2);
-  border-radius: 4px;
-  height: 8px;
-  overflow: hidden;
-}
-
-.hbar .fill {
-  display: block;
-  height: 100%;
-  border-radius: 4px;
-  background: var(--brand);
-}
-
-.hbar .n {
-  color: var(--ink);
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  min-width: 2.5ch;
-  text-align: right;
+  text-align: center;
+  padding: 9px 16px;
+  line-height: 1.5;
 }
 
-/* 읽은 깊이 세 칸은 순서가 곧 의미(빨리 나감 → 오래 봄)라 색으로도 구분한다 */
-.hbar.bounce .fill {
-  background: var(--ink-3);
-}
-.hbar.middle .fill {
-  background: var(--brand);
-}
-.hbar.engaged .fill {
-  background: var(--ok);
-}
-
-/* ---------------------------------------------------------------- 순위 목록 */
-
-.rank-row {
-  display: grid;
-  grid-template-columns: 28px 1fr auto;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.rank-row:last-child {
-  border-bottom: none;
-}
-
-.rank-row .rk {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.rank-row .nm {
-  font-size: 13.5px;
-  font-weight: 650;
-}
-
-.rank-row .sc {
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  font-size: 14px;
-}
-
-.rank-row .sc .u {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ink-3);
-  margin-left: 2px;
-}
-
-/* 등급 칩 — 다크 바탕에서 대비가 죽지 않게 글자색을 밝게 잡는다.
- * 이 화면은 읽는 게 기능이라 멋보다 대비가 먼저다. */
-.chip {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid currentColor;
-  margin-left: 6px;
-  vertical-align: 1px;
-}
-
-.chip-active {
-  color: var(--ok);
-}
-.chip-warm {
-  color: var(--gold);
-}
-.chip-dormant {
-  color: var(--ink-3);
-}
-.chip-unknown {
-  color: var(--ink-3);
-}
-.chip-unsubscribed {
-  color: var(--danger);
-}
-
-.note-line {
-  font-size: 12px;
-  color: var(--ink-3);
-  margin: 0 0 12px;
-  line-height: 1.6;
-}
-
-/* ---------------------------------------------------------------- 표 */
-
-.tablewrap {
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-}
-
-table {
-  border-collapse: collapse;
-  width: 100%;
-  min-width: 620px;
-  background: var(--card);
-}
-
-th,
-td {
-  text-align: left;
-  padding: 11px 15px;
-  font-size: 13.5px;
-  border-bottom: 1px solid var(--line);
-}
-
-th {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  font-weight: 700;
-  background: var(--card-2);
-  white-space: nowrap;
-}
-
-tbody tr:last-child td {
-  border-bottom: none;
-}
-
-td.num {
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-/* ---------------------------------------------------------------- 모달
- * 대시보드의 어법: 요약은 섹션에, 상세와 조작은 모달에. 새 섹션도 이 부품을 그대로 쓴다.
- */
-
-.backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(4, 8, 22, 0.72);
-  z-index: 40;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 5vh 16px;
-  overflow-y: auto;
-}
-
-.modal {
-  background: var(--bg);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-lg);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
-  width: min(1000px, 100%);
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-md);
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--line);
-}
-
-.modal-head h3 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-
-.modal-head .sub {
-  margin: 2px 0 0;
-  font-size: 12.5px;
-  color: var(--ink-3);
-}
-
-.modal-x {
-  font: inherit;
-  font-size: 20px;
-  line-height: 1;
-  background: none;
-  border: none;
-  color: var(--ink-2);
-  cursor: pointer;
-  padding: 6px 8px;
-  border-radius: var(--r-sm);
-}
-
-.modal-x:hover {
-  color: var(--ink);
-  background: var(--card-2);
-}
-
-.modal-body {
-  padding: 18px 22px 24px;
-  overflow-y: auto;
-}
-
-/* ---------------------------------------------------------------- 폼 */
-
-.field {
-  font: inherit;
-  font-size: 13.5px;
-  padding: 8px 11px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--line-2);
-  background: var(--card);
-  color: var(--ink);
-  min-width: 0;
-}
-
-.field:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 1px;
-}
-
-.field::placeholder {
-  color: var(--ink-3);
-}
-
+/* 모달 안 컨트롤 한 줄 */
 .row {
   display: flex;
   gap: var(--s-sm);
@@ -625,31 +989,84 @@ td.num {
   margin-bottom: var(--s-md);
 }
 
+/* 순위 목록의 등급 칩 — 이름과 같은 줄에 붙는다(dashboard.js 주석 참고). */
+.snu-presenter .name .status-pill {
+  margin-left: 8px;
+  vertical-align: 1px;
+  font-weight: 500;
+}
+
+/* 순위 목록을 옆 판들의 글자 크기·행 리듬에 맞춘다.
+ *
+ * 원본 값은 이름 14px/600 · 행 43px 인데, 옆 `.snu-panel` 의 막대 행은 13px/400 · 29px 다.
+ * 원본에서 이 카드는 15px 짜리 행사 목록(`.snu-event-name`) 옆에 있었으니 그쪽에선 맞았지만,
+ * 우리는 막대 판 셋과 나란히 두기 때문에 1px 차이가 굵기·대비와 겹쳐 "글씨가 훨씬 크다"로 읽힌다.
+ *
+ * 크기와 행 높이만 맞추고 **색과 굵기는 건드리지 않는다** — 이 카드는 화면의 초점이라
+ * 네이비+골드로 도드라지는 게 맞다. 없애야 할 건 크기 차이지 존재감이 아니다.
+ * (3부 원본 규칙은 그대로 두고 여기서 덮는다.) */
+.snu-presenter .info .name {
+  font-size: 13px;
+}
+.snu-presenter {
+  padding: 7px 0;
+}
+
+/* 판 안의 마지막 줄은 아래 여백을 지운다 — 판 자체 패딩과 겹쳐 빈 띠가 생긴다. */
+.snu-panel .row:last-child {
+  margin-bottom: 0;
+}
+
+/* 원본 .btn 은 <button> 기준이라 링크로 쓸 때 밑줄이 남는다(발송 검토의 [미리보기]가 그랬다). */
+a.btn,
+a.snu-btn {
+  text-decoration: none;
+}
+
+/* 원본 .form-input/.form-select 는 `width:100%`(세로로 쌓는 .form-grid 용)다.
+ * 우리 .row 는 가로로 늘어놓는 줄이라 그대로 두면 입력 하나가 줄을 다 차지하고
+ * 나머지가 아래로 밀린다. 이 줄 안에서만 auto 로 되돌린다. */
+.row .form-input,
+.row .form-select {
+  width: auto;
+}
+
+/* 원본 .data-table 은 `width:100%` 라서 좁은 화면에서 칸이 짜부라지고 .table-wrap 의
+ * 가로 스크롤이 아예 발동하지 않는다 — 기존 관리자 표가 그래서 모바일에서 못 쓸
+ * 상태였다(T-027 Verification 2). min-width 를 얹어 스크롤이 살아나게 한다. */
+.table-wrap .data-table {
+  min-width: 620px;
+}
+
 .btn-sm {
   font-size: 12px;
   padding: 5px 11px;
 }
-
 .btn-danger {
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.1);
 }
-
 .btn-danger:hover {
-  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.2);
 }
-
 .btn-on {
-  color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.1);
 }
-
+.btn-on:hover {
+  background: rgba(16, 185, 129, 0.2);
+}
 /* 명단엔 있는데 수신거부라 실제로는 안 나가는 상태 — 초록(정상)과 구분해야 한다 */
 .btn-warn {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+  color: var(--accent-gold);
+  border-color: rgba(255, 211, 56, 0.45);
+  background: rgba(255, 211, 56, 0.1);
 }
-
+.btn-warn:hover {
+  background: rgba(255, 211, 56, 0.2);
+}
 /* 잠긴 버튼 — 작업 중이거나(중복 실행 방지) 조건이 안 맞아 못 누르는 상태.
  * 어느 쪽이든 "지금은 안 된다"가 맞는 뜻이라 not-allowed 로 통일한다. */
 .btn[disabled] {
@@ -664,56 +1081,37 @@ td.num {
   gap: var(--s-md);
   margin-top: var(--s-md);
   font-size: 13px;
-  color: var(--ink-3);
+  color: var(--snu-ink-3);
 }
-
-.toast {
-  margin-bottom: var(--s-md);
-  padding: 10px 14px;
-  border-radius: var(--r-sm);
-  font-size: 13px;
-  border: 1px solid var(--line-2);
-  background: var(--card);
-}
-
-.toast.bad {
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
-}
-
-.toast.good {
-  color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
-}
-
-/* ---------------------------------------------------------------- 푸터 */
 
 .foot {
-  border-top: 1px solid var(--line);
-  padding: 22px 0 56px;
-  color: var(--ink-3);
+  max-width: 1240px;
+  margin: 0 auto;
+  border-top: 1px solid var(--snu-line);
+  padding: 22px 40px 56px;
+  color: var(--snu-ink-3);
   font-size: 12.5px;
 }
-
 .foot a {
-  color: var(--ink-2);
+  color: var(--snu-ink-2);
 }
 
-/* ---------------------------------------------------------------- 반응형
- * 표는 .tablewrap 이 가로로 스크롤한다. 표에 width="100%" 를 주면 그 스크롤이
- * 발동하지 않아 화면이 깨진다 — 기존 관리자 화면이 그래서 모바일에서 못 쓸 상태였다.
- */
-
-@media (max-width: 900px) {
-  .cols,
-  .kpis {
-    grid-template-columns: 1fr;
+/* 원본에 없는 반응형 보강.
+ * 원본 .snu-pipeline-row 는 repeat(4,1fr) 고정이라 폰 폭에서 네 칸이 짜부라진다
+ * (원본은 이 카드를 모바일에서 검증하지 않은 듯하다). 표는 .table-wrap 이 가로로
+ * 스크롤하므로 표에 width 100% 를 강제하지 않는다 — 그러면 스크롤이 안 발동한다. */
+@media (max-width: 700px) {
+  .snu-pipeline-row {
+    grid-template-columns: repeat(2, 1fr);
   }
-  .hero {
-    padding: 40px 0 28px;
+  .snu-hero {
+    padding: 32px 20px 40px;
   }
-  .section {
-    padding-top: 40px;
+  .snu-content {
+    padding: 40px 20px 40px;
+  }
+  .foot {
+    padding: 22px 20px 56px;
   }
 }
 

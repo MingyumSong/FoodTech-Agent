@@ -21,7 +21,7 @@ async function renderBody() {
   try {
     return renderReview(await api("/admin/api/review"));
   } catch (e) {
-    return `<div class="toast bad">불러오지 못했습니다 — ${esc(e.message)}</div>`;
+    return `<div class="alert alert-bad">불러오지 못했습니다 — ${esc(e.message)}</div>`;
   }
 }
 
@@ -31,32 +31,32 @@ export function renderReview(d) {
   const ed = d.edition;
 
   const editionBox = ed
-    ? `<div class="panel" style="margin-bottom:16px">
-         <p class="panel-title">오늘 편</p>
+    ? `<div class="snu-panel" style="margin-bottom:16px">
+         <div class="snu-panel-title">오늘 편</div>
          <div style="font-size:15px;font-weight:700;margin-bottom:6px">${esc(ed.subject)}</div>
-         <p class="note-line" style="margin:0">
+         <p class="t-body" style="margin:0; font-size:12px">
            기사 ${ed.items}꼭지 · 상태 ${esc(ed.status)}
            ${ed.already_sent ? `· <b>이미 ${ed.already_sent}명에게 발송됨</b>` : "· 아직 발송 전"}
          </p>
        </div>`
-    : `<div class="panel" style="margin-bottom:16px">
-         <p class="panel-title">오늘 편</p>
-         <p class="note-line" style="margin:0">아직 조립되지 않았습니다. 아래 [오늘 편 조립]을 누르세요.</p>
+    : `<div class="snu-panel" style="margin-bottom:16px">
+         <div class="snu-panel-title">오늘 편</div>
+         <p class="t-body" style="margin:0; font-size:12px">아직 조립되지 않았습니다. 아래 [오늘 편 조립]을 누르세요.</p>
        </div>`;
 
   // 보낼 수 없으면 이유를 크게 보여주고 버튼을 잠근다 — 눌러보고 실패하게 두지 않는다.
   const gate = d.can_send
-    ? `<div class="toast good" style="margin:0 0 12px">
+    ? `<div class="alert alert-ok" style="margin:0 0 12px">
          받는 사람 <b>${d.recipients}명</b> · 상한 ${d.max_recipients}명
        </div>`
-    : `<div class="toast bad" style="margin:0 0 12px">${esc(d.blocked_reason)}</div>`;
+    : `<div class="alert alert-bad" style="margin:0 0 12px">${esc(d.blocked_reason)}</div>`;
 
   return `
     ${editionBox}
 
-    <div class="panel" style="margin-bottom:16px">
-      <p class="panel-title">발송 구성</p>
-      <p class="note-line">
+    <div class="snu-panel" style="margin-bottom:16px">
+      <div class="snu-panel-title">발송 구성</div>
+      <p class="t-body" style="margin:0 0 12px; font-size:12px">
         에피타이저+메인(${s.total})과 국내+해외(${s.n_domestic + s.n_overseas})의 합이 같아야
         저장됩니다. 저장해도 <b>이미 조립된 오늘 편에는 반영되지 않습니다</b> — 다시 조립하세요.
       </p>
@@ -85,8 +85,9 @@ export function renderReview(d) {
 }
 
 function num(label, name, value) {
-  return `<label style="font-size:12.5px;color:var(--ink-3)">${esc(label)}
-    <input class="field" type="number" id="r-${name}" value="${value}" style="width:64px;margin-left:4px"></label>`;
+  return `<label style="font-size:12.5px;color:var(--snu-ink-3)">${esc(label)}
+    <input class="form-input" type="number" id="r-${name}" value="${value}"
+           style="width:64px;margin-left:4px"></label>`;
 }
 
 /* ---------------------------------------------------------------- 조작 */
@@ -136,7 +137,7 @@ document.addEventListener("click", async (e) => {
   }
 
   if (t.id === "r-send") {
-    const info = document.querySelector("#modal-body .toast.good");
+    const info = document.querySelector("#modal-body .alert-ok");
     const who = info ? info.textContent.trim() : "수신자";
     // 되돌릴 수 없는 조작이라 무엇이 누구에게 가는지 문장으로 확인받는다.
     if (!window.confirm(`지금 발송할까요? 되돌릴 수 없습니다.\n\n${who}`)) return;

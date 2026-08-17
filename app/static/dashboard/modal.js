@@ -34,22 +34,24 @@ export async function openModal({ title, subtitle = "", render }) {
   lastFocus = document.activeElement;
   current = { render };
 
+  // 클래스는 원본(HeejeongH/foodtech-dashboard)의 팝오버 어법을 그대로 쓴다.
+  // 원본은 440px 앵커 팝오버지만 우리는 6열 회원 표를 담아야 해서 폭·정렬만 dashboard.css
+  // 4부에서 덮었다. 머리(네이비 그라디언트)·닫기(원형)·본문 여백은 원본 값 그대로다.
   root.innerHTML = `
-    <div class="backdrop" data-close role="dialog" aria-modal="true" aria-label="${esc(title)}">
-      <div class="modal">
-        <div class="modal-head">
-          <div>
-            <h3>${esc(title)}</h3>
-            ${subtitle ? `<p class="sub">${esc(subtitle)}</p>` : ""}
-          </div>
-          <button class="modal-x" data-close aria-label="닫기">✕</button>
+    <div class="snu-popover-backdrop" data-close role="dialog" aria-modal="true"
+         aria-label="${esc(title)}">
+      <div class="snu-popover">
+        <div class="snu-popover-header">
+          <h3>${esc(title)}</h3>
+          ${subtitle ? `<div class="meta">${esc(subtitle)}</div>` : ""}
+          <button class="snu-popover-close" data-close aria-label="닫기">✕</button>
         </div>
-        <div class="modal-body" id="modal-body"></div>
+        <div class="snu-popover-body" id="modal-body"></div>
       </div>
     </div>`;
 
   document.body.style.overflow = "hidden";
-  root.querySelector(".modal-x")?.focus();
+  root.querySelector(".snu-popover-close")?.focus();
   await refresh();
 }
 
@@ -72,12 +74,18 @@ export function esc(value) {
   );
 }
 
-/** 모달 위쪽에 결과 한 줄. 성공도 알려야 사용자가 "눌렸나?" 하고 다시 누르지 않는다. */
+/** 모달 위쪽에 결과 한 줄. 성공도 알려야 사용자가 "눌렸나?" 하고 다시 누르지 않는다.
+ *
+ * 클래스가 `.toast` 가 아니라 `.alert` 인 이유: 원본에도 `.toast` 가 있는데 그건 화면
+ * 우하단에 떠서 사라지는 `position:fixed` + `.show` 짜리 다른 물건이다. 이름을 겹치면
+ * 원본 규칙이 이 배너를 덮어써서 안내가 통째로 안 보인다. */
+export const ALERT_CLASS = { good: "alert alert-ok", bad: "alert alert-bad" };
+
 export function toast(message, kind = "good") {
   const body = document.getElementById("modal-body");
   if (!body) return;
   const el = document.createElement("div");
-  el.className = `toast ${kind}`;
+  el.className = ALERT_CLASS[kind] ?? ALERT_CLASS.good;
   el.textContent = message;
   body.prepend(el);
 }

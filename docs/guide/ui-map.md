@@ -60,10 +60,54 @@ uv run uvicorn app.main:app --reload
 
 | 고치고 싶은 것 | 열 곳 |
 | --- | --- |
-| 색·간격·반경 (디자인 토큰) | `app/static/dashboard/dashboard.css` 맨 위 `:root` |
 | 섹션 목록·순서·제목 | `app/static/dashboard/dashboard.js` 의 `SECTIONS` |
 | 히어로·푸터 | `app/templates/dashboard.html` |
-| 카드·버튼·표·빈 자리 모양 | `dashboard.css` 의 해당 컴포넌트 블록 |
+| 히어로 KPI 카드 내용 | `dashboard.js` 의 `renderHeroStats` (값은 `/admin/api/newsletter` 의 `kpis`) |
+| 우리가 만든 컴포넌트 모양 | `dashboard.css` **4부** (알림·빈 자리·페이저·개발배너 등) |
+| 색·간격·반경 (디자인 토큰) | ⚠️ 아래 "디자인은 가져온 것이다" 참고 — 함부로 고치지 않는다 |
+
+### 디자인은 가져온 것이다 (고치기 전에 읽을 것)
+
+`dashboard.css` 는 **`HeejeongH/foodtech-dashboard` 의 `index.html` `<style>` 을 그대로 옮긴 것**이고
+네 부분으로 나뉘어 있다.
+
+| 부 | 내용 | 손대도 되나 |
+| --- | --- | --- |
+| 1 | 원본 전역 토큰 (`:root` — `--brand-500`, `--accent-purple`, `--accent-gold` …) | ❌ |
+| 2 | 원본 범용 컴포넌트 (`.data-table`, `.form-*`, `.status-*`, `.btn*`) | ❌ |
+| 3 | 원본 `.snu-hero-page` 스코프 테마 (**이 화면 디자인의 거의 전부**) | ❌ |
+| 4 | 우리가 만든 것 (원본에 짝이 없는 것만) | ✅ |
+
+1~3부의 값을 눈대중으로 고치지 말 것. 한 번 그렇게 다시 지었다가 개별 색은 그럴듯한데
+합쳐진 인상이 원본과 완전히 갈라졌다(퍼플·코랄이 빠지고 막대 그라디언트가 단색이 됐다).
+
+원본에는 테마가 **두 겹**이다. 전역 `:root`(1부)와 `.snu-hero-page` 스코프(3부)이고,
+**3부가 1부 토큰을 참조하므로 둘 다 있어야 색이 맞는다.** 한쪽만 가져오면 회색으로 떨어진다.
+회귀 테스트 `test_dashboard_assets_are_public_and_load` 가 두 겹이 다 실렸는지 본다.
+
+**클래스 이름도 원본을 따른다.** 새 이름을 지으면 원본 `index.html` 과의 대응이 끊겨서
+"원본에서 이 모양 찾아 쓰기"가 불가능해진다. 쓸 수 있는 조각:
+
+| 쓰임 | 클래스 |
+| --- | --- |
+| 판 하나 | `.snu-panel` + `.snu-panel-title` |
+| 2열(1.4fr 1fr) 배치 | `.snu-events-layout` |
+| KPI 격자 (칸 수에 따라 자동 접힘) | `.snu-stat-grid` + `.snu-stat` |
+| 가로 막대 한 줄 | `.snu-hbar-row` (`.lbl` / `.bar > span` / `.n`) |
+| 순위 목록 (네이비+골드 강조판) | `.snu-top-presenters` + `.snu-presenter` |
+| 표 (가로 스크롤 포함) | `.table-wrap` + `.data-table` |
+| 상태 칩 | `.status-pill` + `.status-joined`/`pending`/`none`/`scheduled`/`cancelled` |
+| 입력 | `.form-input` / `.form-select` |
+
+**이름이 겹쳐서 조심할 것 둘**
+
+- `.toast` 는 쓰지 않는다. 원본 `.toast` 는 우하단에 떠서 사라지는 `position:fixed` + `.show`
+  짜리다. 모달 안에 남는 배너는 **`.alert` + `.alert-ok`/`.alert-bad`** 를 쓴다.
+- `.field` 를 입력에 쓰지 않는다. 원본에서 `.snu-popover-body .field` 는 `키:값` 표시 행이라
+  모달 안 입력에 붙이면 레이아웃이 뒤집힌다.
+
+`.snu-hbar-row .lbl` 은 **100px 고정**이다. 긴 한글 라벨은 두 줄로 접히니 라벨을 짧게 쓰고
+설명은 위 `.t-body` 줄로 옮긴다(읽은 깊이 막대가 그렇게 되어 있다).
 
 **새 섹션을 추가하려면 세 곳만 만지면 된다:**
 
@@ -71,6 +115,9 @@ uv run uvicorn app.main:app --reload
 2. `endpoint` 에 JSON API 주소를 적고, 그 API를 `app/routes/admin.py` 에 만든다
    (계산은 서비스 함수에 두고 라우트는 HTTP만 — 규칙대로)
 3. `render(data)` 를 채운다 — 응답을 받아 섹션 본문 HTML 문자열을 만든다
+
+섹션 **본문 밖**(히어로 등)을 채워야 하면 `postRender(data)` 를 쓴다 — 04가 KPI 넷을
+히어로 카드로 올리는 데 그걸 쓴다. 실패해도 본문은 이미 떠 있게 되어 있다.
 
 `endpoint` 를 `null` 로 두면 "아직 비어 있음" 자리로 그려진다. 지금 01~03이 그 상태다.
 

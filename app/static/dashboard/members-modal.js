@@ -30,7 +30,7 @@ async function renderBody() {
   try {
     return renderMembers(await api(`/admin/api/members?${params}`));
   } catch (e) {
-    return `<div class="toast bad">목록을 불러오지 못했습니다 — ${esc(e.message)}</div>`;
+    return `<div class="alert alert-bad">목록을 불러오지 못했습니다 — ${esc(e.message)}</div>`;
   }
 }
 
@@ -49,9 +49,9 @@ export function renderMembers(d) {
 
   return `
     <div class="row">
-      <input class="field" id="m-q" placeholder="이름·이메일 검색" value="${esc(state.q)}"
+      <input class="form-input" id="m-q" placeholder="이름·이메일 검색" value="${esc(state.q)}"
              style="flex:1 1 220px">
-      <select class="field" id="m-program">
+      <select class="form-select" id="m-program">
         <option value="">프로그램 전체</option>${options}
       </select>
       <button class="btn" id="m-search">찾기</button>
@@ -60,10 +60,10 @@ export function renderMembers(d) {
 
     <div id="m-add" hidden>
       <div class="row">
-        <input class="field" id="m-name" placeholder="이름 (필수)" style="flex:1 1 130px">
-        <input class="field" id="m-email" placeholder="이메일" style="flex:1 1 190px">
-        <input class="field" id="m-org" placeholder="소속" style="flex:1 1 150px">
-        <select class="field" id="m-newprogram">
+        <input class="form-input" id="m-name" placeholder="이름 (필수)" style="flex:1 1 130px">
+        <input class="form-input" id="m-email" placeholder="이메일" style="flex:1 1 190px">
+        <input class="form-input" id="m-org" placeholder="소속" style="flex:1 1 150px">
+        <select class="form-select" id="m-newprogram">
           <option value="">프로그램 없음</option>${d.programs
             .map((p) => `<option value="${esc(p)}">${esc(p)}</option>`)
             .join("")}
@@ -72,8 +72,8 @@ export function renderMembers(d) {
       </div>
     </div>
 
-    <div class="tablewrap">
-      <table>
+    <div class="table-wrap">
+      <table class="data-table">
         <thead><tr>
           <th>이름</th><th>이메일</th><th>소속</th>
           <th>발송 대상</th><th>구독</th><th></th>
@@ -96,7 +96,7 @@ export function renderMembers(d) {
 }
 
 function empty() {
-  return `<tr><td colspan="6" style="color:var(--ink-3)">조건에 맞는 회원이 없습니다.</td></tr>`;
+  return `<tr><td colspan="6" style="color:var(--snu-ink-3)">조건에 맞는 회원이 없습니다.</td></tr>`;
 }
 
 function row(m) {
@@ -113,7 +113,7 @@ function row(m) {
     : `<button class="btn btn-sm btn-danger" data-act="resub" data-id="${m.id}">수신거부</button>`;
   return `<tr data-name="${esc(m.name)}">
     <td style="white-space:nowrap">${esc(m.name)}</td>
-    <td>${esc(m.email) || '<span style="color:var(--ink-3)">—</span>'}</td>
+    <td>${esc(m.email) || '<span style="color:var(--snu-ink-3)">—</span>'}</td>
     <td>${esc(m.organization)}</td>
     <td>${pilot}</td>
     <td>${sub}</td>

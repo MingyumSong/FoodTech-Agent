@@ -11,31 +11,45 @@
     <!-- 이 페이지는 전체가 인증 뒤에 있다 (T-027 결정 5, 안 1).
          회원 명단과 발송 실행이 한 화면에 있으므로 공개 구역을 두지 않는다. -->
     <!--DEV_BANNER-->
-    <header class="hero">
-      <div class="wrap">
-        <p class="eyebrow">SNU FoodTech · WFTC</p>
-        <h1>World FoodTech Database</h1>
-        <p class="sub">
-          회원·행사·교육과정·뉴스레터를 한자리에서 봅니다. 지금은 Newsletter 섹션만 실제 데이터로
-          연결돼 있고, 나머지 세 섹션은 자리만 잡혀 있습니다.
-        </p>
+
+    <!-- `.snu-hero-page` 는 원본(HeejeongH/foodtech-dashboard)의 스코프 테마다.
+         --snu-* 변수가 여기서 정의되므로 **모달까지 이 안에 있어야** 색이 맞는다. -->
+    <div class="snu-hero-page">
+      <header class="snu-hero">
+        <div class="snu-hero-inner">
+          <div class="snu-eyebrow">SNU FoodTech · WFTC</div>
+          <h1 class="snu-headline">World FoodTech Database</h1>
+          <p class="snu-lead">
+            회원·행사·교육과정·뉴스레터를 한자리에서 봅니다. 지금은 Newsletter 섹션만 실제 데이터로
+            연결돼 있고, 나머지 세 섹션은 자리만 잡혀 있습니다.
+          </p>
+
+          <!-- 뉴스레터 KPI가 여기 들어간다 (dashboard.js → renderHeroStats).
+               원본은 이 자리에 '가입 파이프라인' 깔때기를 두는데 우리에겐 그 데이터가 없어서
+               04 Newsletter 의 KPI 넷으로 채운다. 단위가 서로 달라 화살표·비율 막대는 쓰지 않는다.
+               셸에 숫자를 박지 않는다 — 값은 전부 API 응답에서 온다. -->
+          <div class="snu-pipeline" id="hero-stats" hidden>
+            <div class="snu-pipeline-title">뉴스레터 현황</div>
+            <div class="snu-pipeline-row" id="hero-stats-row"></div>
+          </div>
+        </div>
+      </header>
+
+      <div class="snu-content">
+        <main id="sections"></main>
       </div>
-    </header>
 
-    <main id="sections"></main>
+      <!-- 모달이 여기 그려진다 (modal.js). 섹션마다 따로 두지 않는다 — 한 번에 하나만 열린다. -->
+      <div id="modal-root"></div>
 
-    <!-- 모달이 여기 그려진다 (modal.js). 섹션마다 따로 두지 않는다 — 한 번에 하나만 열린다. -->
-    <div id="modal-root"></div>
-
-    <footer class="foot">
-      <div class="wrap">
+      <footer class="foot">
         디자인은
         <!-- prettier-ignore -->
         <a href="https://github.com/HeejeongH/foodtech-dashboard" rel="noreferrer">HeejeongH/foodtech-dashboard</a>에서
         가져왔습니다 · 데이터·서버는
         <a href="https://github.com/MingyumSong/FoodTech-Agent" rel="noreferrer">FoodTech-Agent</a>
-      </div>
-    </footer>
+      </footer>
+    </div>
 
     <script type="module" src="/static/dashboard/dashboard.js"></script>
   </body>

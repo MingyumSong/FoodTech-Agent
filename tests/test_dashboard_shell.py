@@ -42,7 +42,11 @@ def test_dashboard_assets_are_public_and_load(client: TestClient):
     css = client.get("/static/dashboard/dashboard.css")
     js = client.get("/static/dashboard/dashboard.js")
     assert css.status_code == 200 and js.status_code == 200
-    assert "--gold" in css.text  # 디자인 토큰이 실려 있다
+    # 원본(HeejeongH/foodtech-dashboard)의 토큰 두 겹이 다 실려야 색이 맞는다.
+    # `--snu-gold` 는 스코프 테마, `--accent-purple` 은 전역 팔레트 — 한쪽만 있으면
+    # 3부 규칙이 1부 토큰을 못 찾아 회색으로 떨어진다.
+    assert "--snu-gold" in css.text
+    assert "--accent-purple" in css.text
     assert "SECTIONS" in js.text  # 섹션 등록부가 실려 있다
 
 
