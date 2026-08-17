@@ -65,6 +65,26 @@ _UNAUTHORIZED = HTTPException(
 )
 
 
+def require_scores_access(credentials: HTTPBasicCredentials | None = Depends(_basic)) -> bool:
+    """참여도 CSV 전용 문 — 관리자 비번 **또는** 점수 전용 토큰으로 열린다.
+
+    반환값 True = 점수 전용 토큰으로 들어왔다는 뜻(제한 모드). 호출부는 이걸 보고 PII를 뺀다.
+
+    왜 문을 따로 뒀나: 대시보드 연동에 관리자 비번을 통째로 넘기면 **발송 실행과 회원 명단까지**
+    같이 넘어간다(실제로 그 상태였다). 게다가 사람 비번을 바꿀 때마다 연동이 끊긴다.
+    사용자명은 `admin` 그대로 둔다 — 대시보드 쪽 코드가 그렇게 보내고 있어서 바꾸면 깨진다.
+    """
+    if settings.dev_mode:
+        return False
+    if credentials is not None and settings.scores_token:
+        if secrets.compare_digest(credentials.username, "admin") and secrets.compare_digest(
+            credentials.password, settings.scores_token
+        ):
+            return True
+    require_admin_basic(credentials)  # 관리자 비번이면 전체 권한으로 통과
+    return False
+
+
 def require_admin_basic(credentials: HTTPBasicCredentials | None = Depends(_basic)) -> None:
     if settings.dev_mode:
         return  # 조건은 Settings.dev_mode 참조. 화면 상단에 배너가 뜬다.
@@ -338,14 +358,16 @@ def admin_scores(session: Session = Depends(get_session)) -> str:
     return render_scores_page(collect_scores(session))
 
 
-@router.get("/scores.csv", dependencies=[Depends(require_admin_basic)])
+@router.get("/scores.csv")
 def admin_scores_csv(
+    limited: bool = Depends(require_scores_access),
     tier: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ) -> Response:
     """참여도 명단 CSV 내려받기 (T-023) — `?tier=active&tier=warm`으로 등급 선별.
 
-    행사·베네핏 대상을 고르는 실제 경로다. **PII를 담으므로 Basic 인증 뒤에만 존재한다.**
+    행사·베네핏 대상을 고르는 실제 경로다. **PII를 담으므로 인증 뒤에만 존재한다.**
+    점수 전용 토큰으로 들어오면 이메일 열을 빼고 준다(대시보드는 순위만 보여준다).
     """
     # 등급 값을 검증한다. 검증 없이 파일명에 넣었더니 한글 등급(`?tier=활발`)에서
     # Content-Disposition 헤더가 latin-1 인코딩에 실패해 500이 났다 — 화면에 한글 라벨이
@@ -355,9 +377,9 @@ def admin_scores_csv(
         raise HTTPException(
             status_code=400, detail=f"알 수 없는 등급 — 가능한 값: {', '.join(TIER_ORDER)}"
         )
-    body = scores_csv(session, tiers=wanted or None)
+    body = scores_csv(session, tiers=wanted or None, with_email=not limited)
     name = f"foodie-scores-{'-'.join(sorted(wanted)) if wanted else 'all'}.csv"
-    logger.info(f"scores csv exported: tiers={sorted(wanted) or 'all'}")
+    logger.info(f"scores csv exported: tiers={sorted(wanted) or 'all'} limited={limited}")
     return Response(
         content=body,
         media_type="text/csv; charset=utf-8",

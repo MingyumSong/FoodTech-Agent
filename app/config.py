@@ -6,7 +6,11 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://foodtech:foodtech@localhost:5432/foodtech"
     jobs_token: str = ""
-    admin_token: str = ""  # 회원 API 잠금 (매직링크 로그인 전까지)
+    admin_token: str = ""  # 사람용 — 관리자 화면 전체를 연다
+    # 기계용 — 참여도 CSV **조회만** 된다. 대시보드 연동(Cloudflare Pages)이 이걸 쓴다.
+    # 사람 비번과 분리한 이유: 하나로 쓰면 연동에 발송 실행·회원 명단까지 넘어가고,
+    # 사람 비번을 바꿀 때마다 연동이 끊긴다. 비어 있으면 이 경로는 비활성.
+    scores_token: str = ""
     # 운영은 `scripts/railway-env-sync.sh`가 APP_ENV=prod 를 **명시적으로** 넣는다.
     # 개발 모드 판정이 이 값에 걸려 있으므로 기본값(local)을 바꾸지 말 것.
     app_env: str = "local"

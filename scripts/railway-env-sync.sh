@@ -12,6 +12,7 @@ railway variables --service app --skip-deploys \
   --set "DATABASE_URL=$SUPABASE_URL" \
   --set "JOBS_TOKEN=$JOBS_TOKEN" \
   --set "ADMIN_TOKEN=$ADMIN_TOKEN" \
+  --set "SCORES_TOKEN=$SCORES_TOKEN" \
   --set "APP_ENV=prod" \
   --set "RESEND_API_KEY=$RESEND_API_KEY" \
   --set "NEWSLETTER_REPLY_TO=$NEWSLETTER_REPLY_TO" \

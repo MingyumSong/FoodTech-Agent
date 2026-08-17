@@ -510,11 +510,16 @@ CSV_COLUMNS = [
 ]
 
 
-def scores_csv(session: Session, *, tiers: Sequence[str] | None = None) -> str:
+def scores_csv(
+    session: Session, *, tiers: Sequence[str] | None = None, with_email: bool = True
+) -> str:
     """참여도 명단을 CSV로 (T-023). `tiers`가 있으면 그 등급만.
 
     프로젝트 목표가 "참여율 높은 회원에게 행사·베네핏 부여"인데 화면으로 보는 것 말고
     명단을 꺼낼 방법이 없었다. 이 함수가 그 경로다 — PII를 담으므로 호출부는 반드시 인증 뒤.
+
+    `with_email=False` 는 **점수 전용 토큰**으로 부를 때 쓴다(대시보드 연동). 그쪽은 순위를
+    보여줄 뿐이라 연락처가 필요 없다 — 필요 없는 PII는 애초에 내보내지 않는다.
 
     **BOM을 붙인다.** 없으면 Excel이 UTF-8로 안 읽어 한글 이름이 전부 깨진다.
     """
@@ -524,11 +529,12 @@ def scores_csv(session: Session, *, tiers: Sequence[str] | None = None) -> str:
         wanted = set(tiers)
         rows = [r for r in rows if r["tier"] in wanted]
 
+    columns = CSV_COLUMNS if with_email else [c for c in CSV_COLUMNS if c[0] != "email"]
     buf = io.StringIO()
     writer = csv.writer(buf, lineterminator="\r\n")  # Excel 호환
-    writer.writerow([label for _, label in CSV_COLUMNS])
+    writer.writerow([label for _, label in columns])
     for r in rows:
-        writer.writerow([_csv_cell(r, key) for key, _ in CSV_COLUMNS])
+        writer.writerow([_csv_cell(r, key) for key, _ in columns])
     return "﻿" + buf.getvalue()
 
 
