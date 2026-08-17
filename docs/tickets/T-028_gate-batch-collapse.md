@@ -33,7 +33,9 @@ Status: DONE (2026-08-17 — AC 7/7 구현·배포. check.sh 그린.
 - `app/services/news_classify.py` — `filter_foodtech_relevant`(313행), `BATCH_SIZE`(27행),
   `is_non_news_url`(162행), `NON_NEWS_DOMAINS`(53행)
 - `app/services/pilot_daily.py` — `_deep_first` / `select_picks`(게이트 결과를 쓰는 쪽)
-- 재현 스크립트: 세션 스크래치패드 `gate_repro.py` / `gate_chunked.py` / `gate_small.py`
+- 재현 스크립트: **`scripts/gate_check.py`** (`--whole`로 붕괴 재현). 원래 세션 스크래치패드에
+  있었는데 그 폴더는 세션과 함께 사라지므로 레포로 승격했다 — 조용히 다시 무너질 수 있는
+  종류라 재현 수단이 남아 있어야 한다.
 
 곁가지 두 건(같은 발송 품질 문제라 함께 처리):
 
@@ -69,7 +71,9 @@ Status: DONE (2026-08-17 — AC 7/7 구현·배포. check.sh 그린.
 ## Verification
 
 1. `bash scripts/check.sh` 그린.
-2. 운영 풀로 재현: 수정 후 `gate_repro.py`가 drop > 0, 심도가 2~4로 분포.
+2. 운영 풀로 재현: `DATABASE_URL="$SUPABASE_URL" uv run python scripts/gate_check.py`가
+   drop > 0, 심도가 2~4로 분포. (2026-08-18 실측: 풀 123건 → keep 76 / drop 47,
+   심도 4:12 / 3:52 / 2:12.)
 3. 배포 후 다음 발송(13:00 KST)에서 로그의 청크별 keep/drop 확인, 나간 편의 꼭지를 눈으로 검수.
 4. `/jobs/pilot-daily-status` 200 + `ok: true` (발송일 기준).
 
