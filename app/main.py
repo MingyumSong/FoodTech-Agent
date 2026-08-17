@@ -20,6 +20,13 @@ logger = get_logger("main")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info(f"starting foodtech-hub (env={settings.app_env})")
+    if settings.dev_mode:
+        # 로그에서도 눈에 띄어야 한다 — 인증이 꺼진 채 떠 있는 걸 모르는 게 제일 나쁘다.
+        logger.warning(
+            "개발 모드: 관리자 인증이 꺼져 있습니다 "
+            "(ADMIN_TOKEN 없음 + APP_ENV=%s). 공개된 곳에 띄우지 마세요.",
+            settings.app_env,
+        )
     yield
     logger.info("shutting down, disposing db engine")
     engine.dispose()

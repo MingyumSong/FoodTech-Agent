@@ -44,9 +44,23 @@ def test_status_requires_basic_auth(client: TestClient, monkeypatch):
 
 
 def test_status_unconfigured_returns_503(client: TestClient, monkeypatch):
+    """토큰이 없으면 503 — 단 **운영 환경일 때**다 (T-027 4단계로 조건이 날카로워졌다).
+
+    예전엔 "토큰 없음 = 무조건 503"이었다. 지금은 개발 환경(APP_ENV=local 등)에서
+    토큰이 없으면 개발 모드로 열린다 — 랩실이 시크릿 없이 화면을 볼 수 있게.
+    운영은 APP_ENV=prod 라 예전 그대로 닫힌다.
+    """
     monkeypatch.setattr(settings, "admin_token", "")
+    monkeypatch.setattr(settings, "app_env", "prod")
     resp = client.get("/admin/status", headers=_auth("anything"))
     assert resp.status_code == 503
+
+
+def test_status_opens_in_dev_mode(client: TestClient, monkeypatch):
+    """같은 조건이라도 개발 환경이면 열린다 — 위 테스트와 짝이다."""
+    monkeypatch.setattr(settings, "admin_token", "")
+    monkeypatch.setattr(settings, "app_env", "local")
+    assert client.get("/admin/status").status_code == 200
 
 
 def test_status_renders_stats_without_pii(client: TestClient, session: Session, monkeypatch):

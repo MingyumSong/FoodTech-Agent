@@ -74,6 +74,20 @@ uv run uvicorn app.main:app --reload
 
 `endpoint` 를 `null` 로 두면 "아직 비어 있음" 자리로 그려진다. 지금 01~03이 그 상태다.
 
+### 처음 시작하는 사람에게
+
+```bash
+bash scripts/dev.sh        # Postgres 기동 → 스키마 적용 → 서버 실행
+# → http://localhost:8000/admin/dashboard
+```
+
+**시크릿(`.env`)이 없어도 화면은 뜹니다.** `ADMIN_TOKEN`이 비어 있고 `APP_ENV`가
+`local`/`dev`/`test`면 **개발 모드**로 떠서 인증 없이 볼 수 있고, 화면 맨 위에 주황색 배너가
+붙습니다. 발송·수집·LLM은 키가 없으면 동작하지 않지만 화면 개발엔 필요 없습니다.
+
+운영은 `APP_ENV=prod`라 절대 열리지 않습니다 — 두 조건이 **모두** 맞아야 하고,
+하나라도 어긋나면 잠깁니다(`app/config.py`의 `Settings.dev_mode`).
+
 **규칙 두 가지**
 
 - **셸에 숫자를 박지 않는다.** 계산은 서버가 끝내서 보내고 화면은 그리기만 한다.
@@ -81,6 +95,23 @@ uv run uvicorn app.main:app --reload
   회귀 테스트 `test_shell_carries_no_data` 가 지킨다.)
 - **셸 HTML은 `app/templates/` 에 둔다.** `app/static/` 은 공개 마운트라 거기 두면
   인증이 통째로 우회된다. 이것도 테스트가 지킨다.
+
+### 모달 (상세·조작)
+
+섹션에 `actions: [{ label, run }]` 을 선언하면 머리에 버튼이 붙는다. 상세와 조작은 모달로:
+
+```js
+import { openModal, api, toast, withBusy } from "./modal.js";
+openModal({ title: "행사 관리", subtitle: "…", render: async () => "<p>…</p>" });
+```
+
+- `api(url, {method, body})` — 실패하면 서버가 준 사유를 그대로 던진다. **삼키지 말 것.**
+- `withBusy(btn, fn)` — 누른 버튼을 잠근다. **발송·삭제가 두 번 실행되는 걸 막는 유일한 장치.**
+- `refresh()` — 데이터가 바뀐 뒤 모달을 다시 그린다.
+- 되돌릴 수 없는 조작의 확인 문구엔 **무슨 일이 벌어지는지**를 적는다.
+  "정말요?"는 아무것도 알려주지 않는다 — `members-modal.js` 의 `CONFIRM` 참고.
+- **가능/불가 판정은 서버가 한다.** 화면이 조건을 따로 들고 있으면 언젠가 어긋나서
+  "보낼 수 있다"고 해놓고 서버는 400을 내는 상태가 된다(`review_panel` 의 `can_send` 참고).
 
 ## 2. 관리자 화면 (`admin.foodtech-center.org`) — 기존 5탭
 

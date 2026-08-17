@@ -54,20 +54,28 @@ from app.services.send_settings import SendSettings, save_send_settings
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = get_logger("admin")
-_basic = HTTPBasic()
+# auto_error=False: 헤더가 없을 때 FastAPI가 먼저 401을 던지지 않게 한다.
+# 그러면 개발 모드 판정과 "토큰 미설정(503)"이 이 함수에 도달하지 못한다 — 순서가 뜻을 정한다.
+_basic = HTTPBasic(auto_error=False)
+
+_UNAUTHORIZED = HTTPException(
+    status_code=401,
+    detail="invalid credentials",
+    headers={"WWW-Authenticate": "Basic"},  # 브라우저 암호창을 띄우는 헤더
+)
 
 
-def require_admin_basic(credentials: HTTPBasicCredentials = Depends(_basic)) -> None:
+def require_admin_basic(credentials: HTTPBasicCredentials | None = Depends(_basic)) -> None:
+    if settings.dev_mode:
+        return  # 조건은 Settings.dev_mode 참조. 화면 상단에 배너가 뜬다.
     if not settings.admin_token:
         raise HTTPException(status_code=503, detail="ADMIN_TOKEN not configured")
+    if credentials is None:
+        raise _UNAUTHORIZED
     ok_user = secrets.compare_digest(credentials.username, "admin")
     ok_pass = secrets.compare_digest(credentials.password, settings.admin_token)
     if not (ok_user and ok_pass):
-        raise HTTPException(
-            status_code=401,
-            detail="invalid credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+        raise _UNAUTHORIZED
 
 
 # ------------------------------------------------------------------ 대시보드 셸 (T-027)
@@ -75,6 +83,14 @@ def require_admin_basic(credentials: HTTPBasicCredentials = Depends(_basic)) -> 
 # 템플릿은 `app/static/` 밖에 둔다 — static은 공개 마운트라 거기 두면 인증을 우회한다.
 # CSS·JS는 데이터가 없어 공개로 둬도 무방하고, 실제 숫자는 전부 인증된 API에서만 나온다.
 _DASHBOARD_HTML = Path(__file__).resolve().parents[1] / "templates" / "dashboard.html"
+
+# 개발 모드일 때 화면 맨 위에 끼워 넣는 경고. 인증이 꺼져 있다는 걸 숨기지 않는다.
+_DEV_BANNER_ANCHOR = "<!--DEV_BANNER-->"
+_DEV_BANNER = (
+    '<div class="dev-banner">개발 모드 — 인증이 꺼져 있습니다. '
+    "이 화면은 회원 명단과 발송 실행을 포함합니다. "
+    "공개된 곳에 띄우지 마세요. (ADMIN_TOKEN 을 설정하면 잠깁니다)</div>"
+)
 
 
 @router.get("/dashboard", response_class=HTMLResponse, dependencies=[Depends(require_admin_basic)])
@@ -84,7 +100,12 @@ def admin_dashboard() -> str:
     페이지 전체가 인증 뒤에 있다(결정 5, 안 1) — 회원 명단과 발송 실행이 한 화면에 있어서
     공개 구역을 두지 않는다. 새 섹션을 추가하는 방법은 `dashboard.js` 맨 위 주석 참조.
     """
-    return _DASHBOARD_HTML.read_text(encoding="utf-8")
+    html = _DASHBOARD_HTML.read_text(encoding="utf-8")
+    if _DEV_BANNER_ANCHOR not in html:
+        # 앵커가 사라지면 배너가 조용히 없어진다 — 인증이 꺼진 걸 아무도 모르는 상태가
+        # 제일 나쁘다. 실패로 드러낸다 (T-013 배너에서 같은 사고를 겪었다).
+        raise RuntimeError("대시보드 템플릿에서 개발 모드 배너 자리를 찾지 못함")
+    return html.replace(_DEV_BANNER_ANCHOR, _DEV_BANNER if settings.dev_mode else "", 1)
 
 
 @router.get("/api/newsletter", dependencies=[Depends(require_admin_basic)])

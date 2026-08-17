@@ -7,7 +7,24 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://foodtech:foodtech@localhost:5432/foodtech"
     jobs_token: str = ""
     admin_token: str = ""  # 회원 API 잠금 (매직링크 로그인 전까지)
+    # 운영은 `scripts/railway-env-sync.sh`가 APP_ENV=prod 를 **명시적으로** 넣는다.
+    # 개발 모드 판정이 이 값에 걸려 있으므로 기본값(local)을 바꾸지 말 것.
     app_env: str = "local"
+
+    @property
+    def dev_mode(self) -> bool:
+        """시크릿 없이 화면만 띄우는 모드 (T-027 4단계).
+
+        랩실이 Events·Programs 섹션을 만들려면 화면이 떠야 하는데, 페이지 전체가 인증 뒤에
+        있어서(결정 5) 계정이 없으면 아무것도 못 본다. 그렇다고 인증을 느슨하게 하면
+        회원 3,400명과 발송 버튼이 열린다.
+
+        **닫히는 쪽으로 실패한다**: 두 조건이 모두 맞아야 열린다.
+          1. ADMIN_TOKEN 이 비어 있다 (운영엔 항상 있다)
+          2. APP_ENV 가 개발 값이다 (운영은 prod 를 명시적으로 넣는다)
+        둘 중 하나라도 어긋나면 기존대로 잠긴다.
+        """
+        return not self.admin_token and self.app_env in {"local", "dev", "test"}
 
     # 뉴스 수집 (T-001)
     naver_client_id: str = ""
