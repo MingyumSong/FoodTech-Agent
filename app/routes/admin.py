@@ -8,6 +8,7 @@
 """
 
 import secrets
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -59,6 +60,23 @@ def require_admin_basic(credentials: HTTPBasicCredentials = Depends(_basic)) -> 
             detail="invalid credentials",
             headers={"WWW-Authenticate": "Basic"},
         )
+
+
+# ------------------------------------------------------------------ 대시보드 셸 (T-027)
+
+# 템플릿은 `app/static/` 밖에 둔다 — static은 공개 마운트라 거기 두면 인증을 우회한다.
+# CSS·JS는 데이터가 없어 공개로 둬도 무방하고, 실제 숫자는 전부 인증된 API에서만 나온다.
+_DASHBOARD_HTML = Path(__file__).resolve().parents[1] / "templates" / "dashboard.html"
+
+
+@router.get("/dashboard", response_class=HTMLResponse, dependencies=[Depends(require_admin_basic)])
+def admin_dashboard() -> str:
+    """푸드테크 대시보드 — 4섹션 셸. 섹션 본문은 브라우저가 JSON API로 받아 그린다 (T-027).
+
+    페이지 전체가 인증 뒤에 있다(결정 5, 안 1) — 회원 명단과 발송 실행이 한 화면에 있어서
+    공개 구역을 두지 않는다. 새 섹션을 추가하는 방법은 `dashboard.js` 맨 위 주석 참조.
+    """
+    return _DASHBOARD_HTML.read_text(encoding="utf-8")
 
 
 # ------------------------------------------------------------------ 현황판 (T-010)

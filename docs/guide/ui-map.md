@@ -53,7 +53,36 @@ uv run uvicorn app.main:app --reload
 
 ---
 
-## 2. 관리자 화면 (`admin.foodtech-center.org`)
+## 1.5 대시보드 (`/admin/dashboard`) — 새로 만드는 쪽 (T-027)
+
+푸드테크 전반을 한 페이지에 담는 화면. **여기는 파이썬이 HTML을 조립하지 않는다** —
+브라우저가 JSON API로 데이터를 받아 그린다. 아래 2번(기존 5탭)과 방식이 다르니 헷갈리지 말 것.
+
+| 고치고 싶은 것 | 열 곳 |
+| --- | --- |
+| 색·간격·반경 (디자인 토큰) | `app/static/dashboard/dashboard.css` 맨 위 `:root` |
+| 섹션 목록·순서·제목 | `app/static/dashboard/dashboard.js` 의 `SECTIONS` |
+| 히어로·푸터 | `app/templates/dashboard.html` |
+| 카드·버튼·표·빈 자리 모양 | `dashboard.css` 의 해당 컴포넌트 블록 |
+
+**새 섹션을 추가하려면 세 곳만 만지면 된다:**
+
+1. `dashboard.js` 의 `SECTIONS` 에 항목 추가 (`no`, `id`, `title`, `sub`, `owner`)
+2. `endpoint` 에 JSON API 주소를 적고, 그 API를 `app/routes/admin.py` 에 만든다
+   (계산은 서비스 함수에 두고 라우트는 HTTP만 — 규칙대로)
+3. `render(data)` 를 채운다 — 응답을 받아 섹션 본문 HTML 문자열을 만든다
+
+`endpoint` 를 `null` 로 두면 "아직 비어 있음" 자리로 그려진다. 지금 01~03이 그 상태다.
+
+**규칙 두 가지**
+
+- **셸에 숫자를 박지 않는다.** 계산은 서버가 끝내서 보내고 화면은 그리기만 한다.
+  (원본 대시보드가 손으로 적은 값 때문에 실제로 낡아버린 게 이 작업의 출발점이다.
+  회귀 테스트 `test_shell_carries_no_data` 가 지킨다.)
+- **셸 HTML은 `app/templates/` 에 둔다.** `app/static/` 은 공개 마운트라 거기 두면
+  인증이 통째로 우회된다. 이것도 테스트가 지킨다.
+
+## 2. 관리자 화면 (`admin.foodtech-center.org`) — 기존 5탭
 
 `app/services/admin_pages.py` (탭 1·2·4·5) + `app/services/admin_status.py` (현황판).
 

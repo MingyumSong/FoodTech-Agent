@@ -1,0 +1,420 @@
+/* 푸드테크 대시보드 — 디자인 토큰과 공통 컴포넌트 (T-027 1단계)
+ *
+ * 출처: HeejeongH/foodtech-dashboard 의 index.html 에서 **토큰과 컴포넌트 규칙만** 옮겼다.
+ * 마크업은 복사하지 않았다 — 저쪽은 Supabase RPC 응답 구조에 맞춰져 있어 우리 데이터에 안 맞는다.
+ * 색·간격·반경은 SNU 브랜드(네이비 + 골드)를 그대로 따른다.
+ *
+ * 값을 바꾸려면 :root 의 토큰 한 곳만 고친다. 컴포넌트는 토큰을 통해서만 색을 쓴다.
+ * 이 파일에 하드코딩된 색이 늘어나면 나중에 테마를 못 바꾼다.
+ */
+
+:root {
+  /* 바탕 — SNU 네이비 계열 */
+  --bg: #0b122c;
+  --bg-2: #080f24;
+  --card: #161d40;
+  --card-2: #1e2650;
+
+  /* 글자 — 파랑 쪽으로 치우친 중립색(순수 회색은 이 바탕에서 탁해 보인다) */
+  --ink: #e6eaf6;
+  --ink-2: #b8bce0;
+  --ink-3: #8288b5;
+  --line: #26305c;
+  --line-2: #35407a;
+
+  /* 강조 */
+  --gold: #ffd338;
+  --gold-soft: #ffe580;
+  --gold-wash: rgba(255, 211, 56, 0.06);
+  --brand: #6aaef0;
+  --brand-wash: rgba(106, 174, 240, 0.12);
+
+  /* 의미색 — 강조색과 별개다. 상태를 나타낼 때만 쓴다. */
+  --ok: #4ec99a;
+  --warn: #e0a34a;
+  --danger: #ff8a80;
+
+  --r-sm: 6px;
+  --r: 10px;
+  --r-lg: 14px;
+
+  --s-xs: 4px;
+  --s-sm: 8px;
+  --s-md: 16px;
+  --s-lg: 24px;
+  --s-xl: 32px;
+
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --wrap: 1180px;
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Pretendard, "Apple SD Gothic Neo",
+    "Noto Sans KR", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--brand);
+}
+
+.wrap {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0 var(--s-lg);
+}
+
+/* ---------------------------------------------------------------- 히어로 */
+
+.hero {
+  background: linear-gradient(160deg, var(--bg-2) 0%, var(--bg) 55%, #101a44 100%);
+  border-bottom: 1px solid var(--line);
+  padding: 56px 0 40px;
+}
+
+.hero .eyebrow {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 12px;
+}
+
+.hero h1 {
+  font-size: clamp(28px, 4.5vw, 42px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  margin: 0 0 10px;
+  text-wrap: balance;
+}
+
+.hero p.sub {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 15px;
+  max-width: 62ch;
+}
+
+/* ---------------------------------------------------------------- 섹션 */
+
+.section {
+  padding: 52px 0 0;
+}
+
+.section:last-of-type {
+  padding-bottom: 72px;
+}
+
+.section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-md);
+  margin-bottom: var(--s-lg);
+  flex-wrap: wrap;
+}
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+
+/* 01·02 번호는 장식이 아니라 대시보드가 실제로 쓰는 순서 표기다 */
+.section-title .num {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+
+.section-sub {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 13.5px;
+}
+
+.section-actions {
+  display: flex;
+  gap: var(--s-sm);
+  align-items: center;
+}
+
+/* ---------------------------------------------------------------- 판·카드 */
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
+}
+
+.panel-title {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 var(--s-md);
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: var(--s-md);
+  align-items: start;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-md);
+}
+
+/* ---------------------------------------------------------------- KPI */
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.kpi {
+  background: var(--card);
+  padding: 18px 20px;
+}
+
+.kpi .v {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi .v .u {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  margin-left: 3px;
+}
+
+.kpi .k {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+
+/* ---------------------------------------------------------------- 버튼 */
+
+.btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  border-color: var(--ink-3);
+}
+
+.btn-primary {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #2a2100;
+}
+
+.btn-primary:hover {
+  background: var(--gold-soft);
+  border-color: var(--gold-soft);
+}
+
+.btn:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- 상태 */
+
+/* 아직 아무도 안 만든 섹션. 형태를 Newsletter와 같게 두어 무엇이 들어올 자리인지 보이게 한다. */
+.placeholder {
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-lg);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--ink-3);
+}
+
+.placeholder .who {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  border: 1px dashed var(--line-2);
+  border-radius: 999px;
+  padding: 4px 12px;
+  margin-bottom: 12px;
+}
+
+/* 우리가 곧 채우는 자리. 남이 채울 자리와 형태로 구분한다 — 페이지만 봐도 계획이 읽힌다. */
+.placeholder.next {
+  border-color: var(--gold);
+  background: var(--gold-wash);
+  color: var(--ink-2);
+}
+
+.placeholder.next .who {
+  border-style: solid;
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* 힌트는 공백 없는 긴 파일 경로다 — 좁은 화면에서 안 쪼개지면 페이지를 옆으로 민다.
+ * (헤드리스 크롬은 창을 500px 밑으로 못 줄여서 실제 폰 폭에서는 검증하지 못했다.
+ *  실기기나 브라우저 기기 모드로 한 번 확인할 것.) */
+.placeholder .hint {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 10px;
+  opacity: 0.85;
+  overflow-wrap: anywhere;
+}
+
+.state {
+  padding: 28px 24px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 13.5px;
+}
+
+.state.error {
+  color: var(--danger);
+}
+
+/* 로딩 중임을 형태로도 알린다 — 숫자 자리가 비어 있는 것과 구분되어야 한다 */
+.skeleton {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--card-2);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ---------------------------------------------------------------- 표 */
+
+.tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 620px;
+  background: var(--card);
+}
+
+th,
+td {
+  text-align: left;
+  padding: 11px 15px;
+  font-size: 13.5px;
+  border-bottom: 1px solid var(--line);
+}
+
+th {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 700;
+  background: var(--card-2);
+  white-space: nowrap;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+td.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------- 푸터 */
+
+.foot {
+  border-top: 1px solid var(--line);
+  padding: 22px 0 56px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+.foot a {
+  color: var(--ink-2);
+}
+
+/* ---------------------------------------------------------------- 반응형
+ * 표는 .tablewrap 이 가로로 스크롤한다. 표에 width="100%" 를 주면 그 스크롤이
+ * 발동하지 않아 화면이 깨진다 — 기존 관리자 화면이 그래서 모바일에서 못 쓸 상태였다.
+ */
+
+@media (max-width: 900px) {
+  .cols,
+  .kpis {
+    grid-template-columns: 1fr;
+  }
+  .hero {
+    padding: 40px 0 28px;
+  }
+  .section {
+    padding-top: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
