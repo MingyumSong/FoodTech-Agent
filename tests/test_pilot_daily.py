@@ -14,7 +14,6 @@ from app.models.newsletter import Newsletter
 from app.models.pilot_member import PilotMember
 from app.models.send_log import SendLog
 from app.services.pilot_daily import (
-    PILOT_BANNER,
     PILOT_PROGRAM,
     ROTATION_CATEGORIES,
     build_pilot_daily,
@@ -141,9 +140,7 @@ def test_build_pilot_daily_reuses_same_day_edition(session: Session, monkeypatch
 
     nl1 = build_pilot_daily(session)
     assert (nl1.target_filter or {}).get("program") == PILOT_PROGRAM
-    # 배너 문구가 아니라 **배너가 끼워졌는지**를 본다 — 문구는 카피라 바뀌고(2026-08-18에
-    # 이모지를 뺐다), 그때마다 이 테스트가 깨지면 테스트가 카피를 붙잡는 셈이 된다.
-    assert PILOT_BANNER in nl1.html_body  # 파일럿 배너
+    assert "🧪 시범 운영 중" in nl1.html_body  # 파일럿 배너
     assert "__UNSUBSCRIBE_URL__" in nl1.html_body  # 수신자별 치환 자리
 
     nl2 = build_pilot_daily(session)

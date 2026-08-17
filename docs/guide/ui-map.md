@@ -17,11 +17,11 @@
 
 | 고치고 싶은 것 | 열 곳 |
 | --- | --- |
-| 색 (네이비·브랜드블루·골드·회색·배경) | 파일 맨 위 상수 `NAVY` `BRAND` `GOLD` `INK` `GRAY` `LINE` `BG` … |
-| 글꼴 | `FONT` (하나뿐이다 — 모노스페이스는 뺐다, 메일이 콘솔 출력처럼 보였다) |
+| 색 (네이비·강조색·회색·배경) | 파일 맨 위 상수 `NAVY` `ACCENT` `INK` `GRAY` `LINE` `BG` … |
+| 글꼴 | `FONT` / `MONO` |
 | 상단 로고·제호·발행호수 줄 | `_header()` |
 | 헤더 아래 "오늘의 분야" 한 줄 | `_today_strip()` |
-| 코너 이름 ("에피타이저"·"메인"·"디저트") | `render_foodie_pick()` 안의 `_section_label(...)` 호출 3줄 |
+| 코너 이름과 설명 ("에피타이저 / 가볍게 훑는 2") | `render_foodie_pick()` 안의 `_section_label(...)` 호출 3줄 |
 | 에피타이저 카드 모양 | `_headline_item()` |
 | 메인 카드 모양 (좌측 레일·요약 길이) | `_main_card()` — 요약 자르는 길이는 `summary_limit` |
 | 분야 칩(뱃지) 색·모양 | `_chip()` |

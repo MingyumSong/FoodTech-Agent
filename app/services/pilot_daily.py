@@ -64,14 +64,12 @@ ROTATION_CATEGORIES = [slug for slug in SLUG_BY_KO.values() if slug != "general"
 
 # 파일럿 안내 배너 — 아직 시범 단계라 "몇 개만 눌러봐도 된다"는 안내를 유지 (항목 5 디자인 때 정리).
 PILOT_BANNER = (
-    # 골드는 지면에서 디저트(반응 버튼) 한 곳에만 쓴다 — 안내 배너까지 노란색이면
-    # "눌러야 할 곳"이 둘로 갈린다. 배너는 조용한 회청색으로 물러나 있는다.
-    '<div style="background:#F2F5FA;border-left:3px solid #005CB9;'
-    'padding:14px 16px;margin:18px 0 0;font-size:13px;color:#4A5568;line-height:1.7;">'
-    '<b style="color:#0B122C;">시범 운영 중</b><br>'
+    '<div style="background:#FFF7E6;border:1px solid #FFE1A8;border-radius:8px;'
+    'padding:14px 16px;margin:14px 0 4px;font-size:13.5px;color:#8A6D1B;line-height:1.65;">'
+    "<b>🧪 시범 운영 중</b><br>"
     "푸드테크센터가 뉴스레터 <b>푸디픽</b>을 시범 운영하고 있습니다. 관심 가는 "
     "<b>기사 제목 몇 개만</b> 눌러봐 주세요 — 전부 누르실 필요는 없습니다. "
-    "눌러주신 흔적이 앞으로 뉴스레터를 다듬는 데 큰 도움이 됩니다."
+    "눌러주신 흔적이 앞으로 뉴스레터를 다듬는 데 큰 도움이 됩니다. 감사합니다!"
     "</div>"
 )
 _BANNER_ANCHOR = '<tr><td class="fp-pad" style="padding:0 30px;">'

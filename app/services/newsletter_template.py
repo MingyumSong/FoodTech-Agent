@@ -17,36 +17,26 @@
 import html as html_lib
 from typing import Any
 
-# 팔레트 — 대시보드(`/admin/dashboard`)의 WFTC 토큰을 메일로 옮긴 값이다.
-#
-# **대시보드는 다크 배경이지만 메일은 밝게 간다.** 색만 가져오고 지면은 흰색으로 두는 이유:
-# 메일 클라이언트의 다크모드가 배경·글자색을 제멋대로 반전시켜 다크 디자인이 오히려 깨지고,
-# Outlook은 그라데이션을 아예 못 그린다. 브랜드 인상은 **블루+골드 액센트**가 만든다.
-#
-# NAVY는 예전엔 foodie-icon.png 배경에서 샘플링한 값이라 "바꾸지 말 것"이었는데,
-# 아이콘이 **배경 없는 투명 PNG**라 그 제약은 실재하지 않는다(2026-08-18 확인).
-NAVY = "#0B122C"  # 대시보드 --snu-navy. 헤더 바탕 + 제목 글자
-NAVY_SOFT = "#A9B0D0"  # 네이비 위 보조 텍스트 (대시보드 --snu-ink-2 계열)
-BRAND = "#005CB9"  # WFTC 메인 블루
-BRAND_SOFT = "#EAF2FB"
-GOLD = "#FFD338"  # WFT 골드 — 대시보드의 서명 액센트
-GOLD_SOFT = "#FFF7DC"
-INK = "#0B122C"
-GRAY = "#4A5568"
-# 흰 배경 위 11~12px 글자에 쓰는 색이라 대비를 4.5:1 위로 올렸다(#8A93A6는 3.1:1이었다).
-# 연한 회색은 "깔끔해 보이는" 대신 출처·날짜를 못 읽게 만든다.
-GRAY_SOFT = "#6E7689"
-LINE = "#E4E9F2"
-BLOCK_BG = "#FFFFFF"
-BG = "#F5F7FB"
+# B안 팔레트. NAVY는 app/static/foodie-icon.png의 배경에서 샘플링한 값이라 임의 변경 금지.
+NAVY = "#042A4F"  # 헤더 — app/static/foodie-icon.png 배경에서 샘플링
+NAVY_SOFT = "#8FB3CC"  # 네이비 위 보조 텍스트
+ACCENT = "#1F6FB2"
+ACCENT_SOFT = "#E4EFF8"
+HIGHLIGHT = "#5FB0E8"
+INK = "#16181D"
+GRAY = "#4B5563"
+GRAY_SOFT = "#9CA3AF"
+LINE = "#E5E7EB"
+BLOCK_BG = "#F7FAFC"
+BG = "#EDF1F5"
 
 FONT = "'Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif"
+MONO = "'SF Mono','Menlo','Consolas',monospace"
 
 # 발송 시 수신자별로 치환되는 자리표시자 (send_newsletter가 채운다).
 REACTION_BASE_PLACEHOLDER = "__REACTION_BASE__"
 
-# 이모지를 뺐다 — 세 버튼에 이모지를 달면 본문 어디에도 없는 장식이 여기만 튄다.
-REACTIONS = [("good", "좋았어요"), ("ok", "보통"), ("bad", "별로")]
+REACTIONS = [("good", "👍 좋았어요"), ("ok", "🙂 보통"), ("bad", "🤔 별로")]
 
 
 def _esc(text: str) -> str:
@@ -84,48 +74,40 @@ def _chip(item: dict[str, Any], *, solid: bool) -> str:
     if not label:
         return ""
     style = (
-        f"background:{BRAND};color:#FFFFFF;" if solid else f"background:{BRAND_SOFT};color:{BRAND};"
+        f"background:{ACCENT};color:#FFFFFF;"
+        if solid
+        else f"background:{ACCENT_SOFT};color:{ACCENT};"
     )
-    # 모서리를 2px로 — 둥근 알약 칩은 화면 UI 언어라 지면에선 붕 뜬다.
     return (
-        f'<span style="{style}border-radius:2px;padding:3px 8px;'
+        f'<span style="{style}border-radius:3px;padding:2px 8px;'
         f'font-size:11px;font-weight:700;">{_esc(label)}</span>'
     )
 
 
 def _meta_row(item: dict[str, Any], *, solid_chip: bool) -> str:
-    """분야 칩 + 출처. **본문과 같은 글꼴을 쓴다** — 여기에 모노스페이스를 쓰면
-    메일이 콘솔 출력처럼 보인다(발행물이 아니라)."""
     return (
-        f'<div style="margin-bottom:6px;">{_chip(item, solid=solid_chip)}'
-        f'<span style="font-size:11.5px;color:{GRAY_SOFT};">'
-        f"&nbsp;&nbsp;{_esc(_source_line(item))}</span></div>"
+        f'<div style="margin-bottom:5px;">{_chip(item, solid=solid_chip)}'
+        f'<span style="font-family:{MONO};font-size:10.5px;color:#A3AEB8;">'
+        f"&nbsp; {_esc(_source_line(item))}</span></div>"
     )
 
 
-def _section_label(name: str) -> str:
-    """코너 이름 한 줄. 골드 세로줄이 대시보드의 액센트를 그대로 옮긴 자리다.
-
-    번호(`01`)와 설명(`가볍게 훑는 2`)을 뺐다 — 코너가 셋뿐이라 번호가 정보를 더하지 않고,
-    "깊이 보는 3" 같은 자기 설명은 지면을 부풀리기만 한다.
-    """
+def _section_label(no: str, name: str, desc: str) -> str:
     return (
-        f'<div style="margin:30px 0 6px;padding-left:11px;border-left:3px solid {GOLD};'
-        f'font-size:13px;font-weight:800;color:{NAVY};letter-spacing:.04em;">{_esc(name)}</div>'
+        f'<div style="margin:26px 0 2px;font-family:{MONO};font-size:10.5px;'
+        f'font-weight:700;color:{ACCENT};letter-spacing:.12em;">{no} &nbsp;{_esc(name)} '
+        f'&nbsp;<span style="color:#B4C2CE;font-weight:400;">{_esc(desc)}</span></div>'
     )
 
 
 def _headline_item(item: dict[str, Any]) -> str:
-    """에피타이저 — 메인과 같은 순서(칩 → 제목)로 통일. 코너가 달라도 읽는 순서는 같아야 한다.
-
-    좌측 컬러 레일을 뺐다 — 모든 꼭지에 레일을 두르면 강조가 아니라 배경 무늬가 된다.
-    꼭지를 가르는 건 얇은 밑줄 하나면 충분하다(신문 지면의 방식).
-    """
-    return f"""<table width="100%" cellpadding="0" cellspacing="0">
+    """에피타이저 — 메인과 같은 순서(칩 → 제목)로 통일. 코너가 달라도 읽는 순서는 같아야 한다."""
+    return f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr>
-  <td style="padding:13px 0;border-bottom:1px solid {LINE};">
+  <td style="width:3px;background:#9EC5E4;font-size:0;">&nbsp;</td>
+  <td style="padding:9px 0 9px 12px;">
     {_meta_row(item, solid_chip=False)}
-    <a href="{item["url"]}" style="color:{INK};font-weight:700;font-size:15.5px;
+    <a href="{item["url"]}" style="color:{INK};font-weight:700;font-size:15px;
        text-decoration:none;line-height:1.5;">{_esc(item["title"])}</a>
   </td>
 </tr>
@@ -133,27 +115,25 @@ def _headline_item(item: dict[str, Any]) -> str:
 
 
 def _main_card(item: dict[str, Any], *, summary_limit: int = 170) -> str:
-    """메인 — 에피타이저와 같은 지면 위에서 **글자 크기·칩 농도·요약 유무**로만 위계를 만든다.
-
-    연회색 블록과 레일을 뺐다. 배경색으로 강조하면 카드가 넷 다섯 겹치는 순간
-    지면 전체가 얼룩덜룩해지고, 그 인상이 "자동 생성물" 느낌의 큰 몫이었다.
-    """
+    """메인 — 좌측 레일 + 연회색 블록. 해외는 레일 색으로 구분."""
     summary = (item.get("summary") or "").strip()
     if len(summary) > summary_limit:
         summary = summary[: summary_limit - 1].rstrip() + "…"
     summary_html = (
-        f'<p style="margin:8px 0 0;font-size:13.5px;line-height:1.7;color:{GRAY};">'
+        f'<p style="margin:7px 0 0;font-size:13px;line-height:1.68;color:{GRAY};">'
         f"{_esc(summary)}</p>"
         if summary
         else ""
     )
-    # 지역 구분은 메타 줄의 KR/GLOBAL 라벨이 한다 — 색으로 나누면 해외 기사가 덜 중요해 보였다.
-    return f"""<table width="100%" cellpadding="0" cellspacing="0">
+    # 레일 색은 국내·해외를 가리지 않는다 — 회색을 쓰니 해외 기사가 덜 중요해 보였다.
+    # 지역 구분은 메타 줄의 KR/GLOBAL 라벨이 이미 하고 있다.
+    return f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr>
-  <td style="padding:16px 0;border-bottom:1px solid {LINE};">
+  <td style="width:4px;background:{ACCENT};font-size:0;">&nbsp;</td>
+  <td style="background:{BLOCK_BG};padding:14px 16px;">
     {_meta_row(item, solid_chip=True)}
-    <a href="{item["url"]}" style="color:{INK};font-weight:800;font-size:17.5px;
-       text-decoration:none;line-height:1.4;">{_esc(item["title"])}</a>
+    <a href="{item["url"]}" style="color:{INK};font-weight:800;font-size:16.5px;
+       text-decoration:none;line-height:1.42;">{_esc(item["title"])}</a>
     {summary_html}
   </td>
 </tr>
@@ -169,11 +149,12 @@ def _today_strip(items: list[dict[str, Any]]) -> str:
             seen.append(label)
     if not seen:
         return ""
-    return f"""<tr><td style="background:{BLOCK_BG};padding:15px 30px;
-  border-bottom:1px solid {LINE};">
-  <span style="font-size:11.5px;font-weight:700;color:{GRAY_SOFT};
-    letter-spacing:.06em;">오늘의 분야</span>
-  <span style="font-size:13px;color:{NAVY};font-weight:600;">&nbsp;&nbsp;{
+    return f"""<tr><td style="background:{
+        BLOCK_BG
+    };padding:12px 30px;border-bottom:1px solid #DFE7EE;">
+  <span style="font-family:{MONO};font-size:10px;font-weight:700;color:#7C93A6;
+    letter-spacing:.1em;">TODAY</span>
+  <span style="font-size:12.5px;color:#33526B;font-weight:600;">&nbsp; {
         _esc(" · ".join(seen))
     }</span>
 </td></tr>"""
@@ -182,27 +163,26 @@ def _today_strip(items: list[dict[str, Any]]) -> str:
 def _dessert() -> str:
     """디저트 — 원클릭 반응 3버튼. 클릭 한 번이 참여 신호이자 체류 대체 지표가 된다.
 
-    지면에서 유일하게 바탕색을 쓰는 자리다. 골드를 여기 한 번만 쓰면 "눌러야 할 곳"이
-    저절로 눈에 든다 — 강조는 아껴 쓸 때만 강조로 남는다.
+    헤더와 같은 네이비를 쓰면 위아래가 무겁게 닫혀서 연한 하늘색으로 바꿨다.
     """
     buttons = []
     for i, (value, label) in enumerate(REACTIONS):
         style = (
-            f"background:{BRAND};color:#FFFFFF;border:1px solid {BRAND};"
+            f"background:{ACCENT};color:#FFFFFF;"
             if i == 0
-            else f"background:#FFFFFF;color:{NAVY};border:1px solid #D7DEEA;"
+            else f"background:#FFFFFF;color:{ACCENT};border:1px solid #C9D9E7;"
         )
         buttons.append(
             f'<a href="{REACTION_BASE_PLACEHOLDER}/{value}" style="display:inline-block;'
-            f"{style}border-radius:4px;padding:10px 17px;margin:0 5px 6px 0;"
+            f"{style}border-radius:6px;padding:9px 15px;margin:0 4px 6px 0;"
             f'font-size:13px;font-weight:700;text-decoration:none;">{label}</a>'
         )
     return f"""<table width="100%" cellpadding="0" cellspacing="0"
-       style="margin-top:14px;background:{GOLD_SOFT};">
-<tr><td style="padding:18px 20px;border-left:3px solid {GOLD};">
-  <div style="font-size:14.5px;font-weight:700;color:{NAVY};">오늘 편은 어떠셨나요?</div>
-  <div style="font-size:12.5px;color:{GRAY};margin:5px 0 14px;">한 번의 클릭이 다음 편을
-    다듬습니다</div>
+       style="margin-top:10px;background:{ACCENT_SOFT};border-radius:8px;">
+<tr><td style="padding:18px 20px;">
+  <div style="font-size:14px;font-weight:700;color:{INK};">오늘 코스는 어떠셨나요?</div>
+  <div style="font-size:12px;color:#4A6C88;margin:4px 0 13px;">눌러주신 한 번이 다음 픽을
+    더 정확하게 만듭니다</div>
   {"".join(buttons)}
 </td></tr>
 </table>"""
@@ -214,17 +194,15 @@ def _header(issue_no: int, issue_date: str, icon_url: str | None) -> str:
         if icon_url
         else "&nbsp;"
     )
-    # 골드 띠 → 네이비 헤더. 대시보드 히어로의 배색을 그대로 옮긴 자리다.
-    # 제호의 체크마크(푸디픽✓)를 뺐다 — 로고가 아니라 글자에 붙인 장식이라 급조한 티가 났다.
-    return f"""<tr><td style="background:{NAVY};padding:24px 30px;border-top:3px solid {GOLD};">
+    return f"""<tr><td style="background:{NAVY};padding:22px 30px;">
   <table width="100%" cellpadding="0" cellspacing="0"><tr>
     <td valign="middle">
-      <div style="font-size:11px;font-weight:700;color:{GOLD};
-        letter-spacing:.16em;">FOODIE'S PICK</div>
-      <div style="font-size:28px;font-weight:800;letter-spacing:-.02em;color:#FFFFFF;
-        margin-top:7px;">푸디픽</div>
-      <div style="font-size:12px;color:{NAVY_SOFT};margin-top:8px;">
-        제{issue_no}호 · {_esc(issue_date.replace("-", "."))} · 푸드테크센터</div>
+      <div style="font-size:27px;font-weight:800;letter-spacing:-.02em;color:#FFFFFF;">푸디픽<span
+        style="color:{HIGHLIGHT};">✓</span></div>
+      <div style="font-family:{MONO};font-size:11px;color:{NAVY_SOFT};margin-top:5px;
+        letter-spacing:.06em;">FOODIE'S PICK · 데일리 브리핑</div>
+      <div style="font-family:{MONO};font-size:11px;color:{NAVY_SOFT};margin-top:6px;">
+        #{issue_no:03d} · {_esc(issue_date)}</div>
     </td>
     <td align="right" valign="middle" style="width:77px;">{icon}</td>
   </tr></table>
@@ -271,17 +249,17 @@ def render_foodie_pick(
 
 <tr><td class="fp-pad" style="padding:0 30px;">
 
-  {_section_label("에피타이저")}
+  {_section_label("01", "에피타이저", "가볍게 훑는 2")}
   {headlines}
 
-  {_section_label("메인")}
+  {_section_label("02", "메인", "깊이 보는 3")}
   {mains}
 
-  {_section_label("디저트")}
+  {_section_label("03", "디저트", "한 번만 눌러주세요")}
   {_dessert()}
 
-  <div style="margin:24px 0 0;font-size:13px;color:{GRAY};line-height:1.65;">
-    오늘 픽은 여기까지입니다. 내일 또 차릴게요. — <b style="color:{NAVY};">푸디 드림</b>
+  <div style="margin:22px 0 0;font-size:13px;color:{GRAY};line-height:1.65;">
+    오늘 브리핑은 여기까지입니다. 내일 더 신선한 픽으로 차릴게요. — <b>푸디 드림</b>
   </div>
 
 </td></tr>
@@ -289,7 +267,7 @@ def render_foodie_pick(
 <tr><td class="fp-pad" style="padding:22px 30px 26px;">
   <div style="border-top:1px solid {LINE};padding-top:16px;font-size:11.5px;
        color:{GRAY_SOFT};line-height:1.85;">
-    푸디픽은 <a href="https://foodtech-center.org" style="color:{BRAND};
+    푸디픽은 <a href="https://foodtech-center.org" style="color:{ACCENT};
     text-decoration:none;">푸드테크센터</a>가 발행합니다.<br>
     이 메일에 <b style="color:{GRAY};">답장</b>하시면 운영진에게 바로 전달됩니다.<br>
     <a href="{unsubscribe_url}" style="color:#6B7280;">수신거부</a>
