@@ -30,6 +30,10 @@ for i in $(seq 1 20); do
   sleep 1
 done
 
+# 개발 모드는 **여기서만** 켜진다. Settings.app_env 기본값은 prod 라(부재를 열림으로
+# 해석하지 않는다) 이 줄이 없으면 인증이 걸린 채로 뜬다.
+export APP_ENV="${APP_ENV:-local}"
+
 echo "▶ 3/3  서버 실행"
 echo
 echo "   대시보드:  http://localhost:8000/admin/dashboard"

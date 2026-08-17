@@ -194,6 +194,25 @@ def _add_form(programs: list[str]) -> str:
     )
 
 
+def _confirm_form(action: str, message: str, inner: str) -> str:
+    """확인창을 거치는 POST 폼.
+
+    **확인 문구를 JS 리터럴에 직접 넣지 않는다.** `_esc`가 `'` → `&#x27;`로 바꿔도
+    HTML 파서가 속성값을 먼저 디코딩하므로 따옴표가 되살아나 JS 문자열을 탈출한다.
+    실제로 이름이 `X');alert(1);//` 이면 `alert`가 실행됐고, 더 흔하게는 `O'Brien` 하나로
+    핸들러가 문법 오류가 나 **확인창 없이 즉시 실행**됐다 — 확인창을 넣은 취지가 무력화된다.
+
+    그래서 문구는 `data-confirm` 속성에 담고 JS는 DOM에서 읽는다. 인코딩 경계가 하나뿐이라
+    이름에 무엇이 들어와도 문자열 밖으로 못 나간다.
+    """
+    return (
+        f'<form method="post" action="{action}" style="margin:0;" '
+        f'data-confirm="{_esc(message)}" '
+        'onsubmit="return confirm(this.dataset.confirm);">'
+        f"{inner}</form>"
+    )
+
+
 def _sub_form(m: Member) -> str:
     """구독 상태 토글 (T-025) — 되살리기는 **본인 요청을 받은 뒤** 누르는 버튼이다.
 
@@ -206,16 +225,15 @@ def _sub_form(m: Member) -> str:
     )
     label = "🚫 해지" if on else "↩︎ 되살리기"
     ask = (
-        f"{_esc(m.name)} 회원의 수신을 해지할까요?"
+        f"{m.name} 회원의 수신을 해지할까요?"
         if on
-        else f"{_esc(m.name)} 회원을 다시 구독시킬까요? 본인이 요청한 경우에만 누르세요."
+        else f"{m.name} 회원을 다시 구독시킬까요? 본인이 요청한 경우에만 누르세요."
     )
-    action = f"/admin/members/{m.id}/subscribed"
-    return (
-        f'<form method="post" action="{action}" style="margin:0;" '
-        f"onsubmit=\"return confirm('{ask}');\">"
+    return _confirm_form(
+        f"/admin/members/{m.id}/subscribed",
+        ask,
         f'<input type="hidden" name="subscribed" value="{"0" if on else "1"}">'
-        f'<button type="submit" style="{style}">{label}</button></form>'
+        f'<button type="submit" style="{style}">{label}</button>',
     )
 
 
@@ -225,10 +243,10 @@ def _member_row(m: Member) -> str:
         "padding:3px 8px;background:#FCE8E8;color:#B42318;border:0;border-radius:6px;"
         "font-size:11.5px;cursor:pointer;"
     )
-    del_form = (
-        f'<form method="post" action="/admin/members/{m.id}/delete" style="margin:0;" '
-        f"onsubmit=\"return confirm('{_esc(m.name)} 회원을 삭제할까요?');\">"
-        f'<button type="submit" style="{del_btn}">삭제</button></form>'
+    del_form = _confirm_form(
+        f"/admin/members/{m.id}/delete",
+        f"{m.name} 회원을 삭제할까요?",
+        f'<button type="submit" style="{del_btn}">삭제</button>',
     )
     return (
         f'<tr style="border-top:1px solid {LINE};font-size:12.5px;color:{INK};">'

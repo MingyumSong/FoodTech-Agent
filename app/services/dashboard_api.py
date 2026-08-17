@@ -101,6 +101,13 @@ def review_panel(session: Session) -> dict[str, Any]:
 
     if nl is None:
         blocked = "오늘 편이 아직 없습니다 — 먼저 조립하세요."
+    elif nl.status in {"sending", "sent"} or d["already_sent"]:
+        # 이미 보낸 편을 다시 보낼 수 있다고 말하면 안 된다. 옛 발송검토 화면
+        # (`render_review_page`)은 같은 조건으로 버튼을 잠그는데 이 API만 안 봤다.
+        # 더 나쁜 건 발송 루프가 ~0.6초/명이라, 도는 도중 두 번째 클릭이 들어오면
+        # 아직 안 보낸 사람에게 **중복 발송**된다(`send_newsletter`가 루프 전에 뜬
+        # send_logs 스냅샷 하나로 판단하고, (newsletter_id, email) 유니크 제약도 없다).
+        blocked = f"오늘 편은 이미 {d['already_sent']}명에게 발송됐습니다 (상태 {nl.status})."
     elif recipients < 1:
         blocked = "수신자가 0명입니다 — 회원 관리에서 발송 대상을 확인하세요."
     elif recipients > PILOT_MAX_RECIPIENTS:

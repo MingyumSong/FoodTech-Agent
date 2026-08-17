@@ -11,9 +11,11 @@ class Settings(BaseSettings):
     # 사람 비번과 분리한 이유: 하나로 쓰면 연동에 발송 실행·회원 명단까지 넘어가고,
     # 사람 비번을 바꿀 때마다 연동이 끊긴다. 비어 있으면 이 경로는 비활성.
     scores_token: str = ""
-    # 운영은 `scripts/railway-env-sync.sh`가 APP_ENV=prod 를 **명시적으로** 넣는다.
-    # 개발 모드 판정이 이 값에 걸려 있으므로 기본값(local)을 바꾸지 말 것.
-    app_env: str = "local"
+    # **기본값이 prod 인 이유**: 개발 모드 판정이 이 값에 걸려 있다. 기본값을 local 로 두면
+    # "환경변수를 안 넣은 배포"가 곧 무인증 공개가 된다(프리뷰 환경·새 서비스·env 초기화).
+    # 부재를 열림으로 해석하지 않는다 — 개발 모드는 `scripts/dev.sh`가 APP_ENV=local 을
+    # 명시적으로 넣을 때만 켜진다.
+    app_env: str = "prod"
 
     @property
     def dev_mode(self) -> bool:

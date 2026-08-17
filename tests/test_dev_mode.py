@@ -72,3 +72,14 @@ def test_data_apis_open_in_dev_too(client: TestClient, monkeypatch):
     assert client.get("/admin/api/newsletter").status_code == 200
     assert client.get("/admin/api/members").status_code == 200
     assert client.get("/admin/api/review").status_code == 200
+
+
+def test_empty_environment_is_locked(monkeypatch):
+    """설정을 아무것도 안 넣은 환경은 **잠겨야** 한다 (코드리뷰 지적, 2026-08-17).
+
+    이전엔 `app_env` 기본값이 "local"이라 환경변수 없는 배포가 곧 무인증 공개였다.
+    프리뷰 환경·새 서비스·env 초기화 어느 하나만 걸려도 회원 명단과 발송 버튼이 열린다.
+    부재를 열림으로 해석하지 않는다 — 개발 모드는 scripts/dev.sh 가 명시할 때만 켜진다.
+    """
+    assert Settings(admin_token="").dev_mode is False
+    assert Settings().app_env == "prod"

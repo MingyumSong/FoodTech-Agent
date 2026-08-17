@@ -11,7 +11,12 @@ from app.config import settings
 from app.models.member import Member
 from app.models.member_program import MemberProgram
 from app.models.news_item import NewsItem
-from app.services.pilot_daily import PILOT_PROGRAM, ROTATION_CATEGORIES
+from app.models.send_log import SendLog
+from app.services.pilot_daily import (
+    PILOT_PROGRAM,
+    ROTATION_CATEGORIES,
+    _todays_pilot_newsletter,
+)
 
 TOKEN = "secret-token"
 
@@ -155,4 +160,32 @@ def test_send_rechecks_the_guard_itself(client: TestClient, session: Session, mo
     session.add(m)
     session.commit()
 
+    assert client.post("/admin/api/review/send", headers=_auth()).status_code == 400
+
+
+def test_cannot_send_twice(client: TestClient, session: Session, monkeypatch):
+    """이미 보낸 편은 다시 못 보낸다 (코드리뷰 지적, 2026-08-17).
+
+    발송 루프가 수신자당 0.6초라 도는 도중 두 번째 클릭이 들어오면, 루프 시작 전에 뜬
+    send_logs 스냅샷으로 판단하는 탓에 아직 안 보낸 사람에게 **중복 발송**된다.
+    `(newsletter_id, email)` 유니크 제약도 없어 DB도 안 막는다. 서버 게이트가 1차 방어다.
+    """
+    monkeypatch.setattr(settings, "admin_token", TOKEN)
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
+    _news(session)
+    _recipient(session, "twice@example.com")
+    client.post("/admin/api/review/build", headers=_auth())
+    assert client.get("/admin/api/review", headers=_auth()).json()["can_send"] is True
+
+    nl = _todays_pilot_newsletter(session)
+    assert nl is not None and nl.id is not None
+    nl_id = nl.id
+    session.add(
+        SendLog(newsletter_id=nl_id, member_id=None, email="twice@example.com", status="sent")
+    )
+    session.commit()
+
+    d = client.get("/admin/api/review", headers=_auth()).json()
+    assert d["can_send"] is False
+    assert "이미" in d["blocked_reason"]
     assert client.post("/admin/api/review/send", headers=_auth()).status_code == 400
