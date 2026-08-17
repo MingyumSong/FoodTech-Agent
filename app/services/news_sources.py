@@ -230,6 +230,21 @@ SOURCE_BY_DOMAIN: dict[str, str] = {
     "nutritioninsight.com": "Nutrition Insight",
     "restaurantbusinessonline.com": "Restaurant Business",
     "foodandbeverage.business": "Food & Beverage Business",
+    "thedieline.com": "DIELINE",
+    # 2026-08-18 추가 — 최근 30일 발송·수집분에서 **도메인이 그대로 메일에 찍히던** 곳들.
+    # 각 사이트 <title>로 직접 확인했다(youngnong.co.kr은 응답이 없어 뺐다 — 확실한 것만 적는다).
+    "economist.co.kr": "이코노미스트",
+    "ajunews.com": "아주경제",
+    "idaegu.com": "대구일보",
+    "m-i.kr": "매일일보",
+    "asiatoday.co.kr": "아시아투데이",
+    "4th.kr": "포쓰저널",
+    "nongmin.com": "농민신문",
+    "getnews.co.kr": "글로벌경제신문",
+    "g-enews.com": "글로벌이코노믹",
+    "dailian.co.kr": "데일리안",
+    "newsway.co.kr": "뉴스웨이",
+    "amnews.co.kr": "농축유통신문",
 }
 
 # 링크를 걸고 싶은 매체 — 중복 군집에서 대표를 고를 때 우선한다 (T-009).
