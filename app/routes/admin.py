@@ -35,7 +35,7 @@ from app.services.admin_pages import (
     scores_csv,
 )
 from app.services.admin_status import collect_stats, render_status
-from app.services.dashboard_api import members_page, newsletter_section
+from app.services.dashboard_api import members_page, newsletter_section, review_panel
 from app.services.members import (
     create_member,
     delete_member,
@@ -159,6 +159,57 @@ def admin_api_member_delete(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     logger.info(f"admin member deleted (dashboard): id={member_id}")
     return {"deleted": member_id}
+
+
+# --- 발송 검토 모달 (T-027 3b) --------------------------------------------------
+# 여기만 유일하게 **실제 메일이 나가는** 조작이다. 가드는 서버에만 둔다.
+
+
+@router.get("/api/review", dependencies=[Depends(require_admin_basic)])
+def admin_api_review(session: Session = Depends(get_session)) -> dict[str, Any]:
+    return review_panel(session)
+
+
+@router.post("/api/review/settings", dependencies=[Depends(require_admin_basic)])
+def admin_api_review_settings(
+    payload: SendSettings, session: Session = Depends(get_session)
+) -> dict[str, Any]:
+    """저장 단계에서 검증한다 — 조립 시점에 터지면 크론이 조용히 실패하고 그날 발송이 빠진다."""
+    try:
+        save_send_settings(session, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return review_panel(session)
+
+
+@router.post("/api/review/build", dependencies=[Depends(require_admin_basic)])
+def admin_api_review_build(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """오늘 편 조립(멱등) — 같은 날 다시 눌러도 새 편이 생기지 않는다."""
+    try:
+        build_pilot_daily(session)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return review_panel(session)
+
+
+@router.post("/api/review/send", dependencies=[Depends(require_admin_basic)])
+def admin_api_review_send(
+    background: BackgroundTasks, session: Session = Depends(get_session)
+) -> dict[str, Any]:
+    """실제 발송. 화면이 뭘 보냈든 **여기서 다시 판정한다** — 화면의 판단을 믿지 않는다.
+
+    (`review_panel`이 같은 조건으로 can_send를 계산하지만, 화면을 열어둔 사이에 수신자가
+    바뀔 수 있다. 마지막 판정은 누르는 시점의 서버가 한다.)
+    """
+    panel = review_panel(session)
+    if not panel["can_send"]:
+        raise HTTPException(status_code=400, detail=panel["blocked_reason"])
+
+    nl = _todays_pilot_newsletter(session)
+    assert nl is not None and nl.id is not None  # can_send 가 이미 보장한다
+    background.add_task(send_reviewed, nl.id)
+    logger.info(f"admin manual send accepted (dashboard): id={nl.id} n={panel['recipients']}")
+    return {"accepted": True, "recipients": panel["recipients"], "newsletter_id": nl.id}
 
 
 def _member_or_404(session: Session, member_id: int) -> Member:

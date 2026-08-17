@@ -11,6 +11,7 @@
 같은 함수라 화면이 둘로 갈라져도 값은 하나다.
 """
 
+from dataclasses import asdict
 from typing import Any
 
 from sqlmodel import Session, col, func, select
@@ -23,10 +24,13 @@ from app.services.admin_pages import (
     TIER_ORDER,
     collect_members_page,
     collect_popular,
+    collect_review,
     collect_scores,
 )
 from app.services.admin_status import collect_stats
+from app.services.newsletter import PILOT_MAX_RECIPIENTS
 from app.services.newsletter_template import CATEGORY_LABELS_KO
+from app.services.send_settings import MAX_DAYS, MAX_ITEMS_TOTAL, SendSettings
 
 TOP_N = 10
 
@@ -80,6 +84,51 @@ def members_page(
             }
             for m in members
         ],
+    }
+
+
+def review_panel(session: Session) -> dict[str, Any]:
+    """발송 검토 모달 (T-027 3b) — 오늘 편 상태 + 발송 구성 + **발송 가능 여부**.
+
+    `can_send`·`blocked_reason`을 서버가 판정해서 내려보낸다. 화면이 가드 조건
+    (수신자 1~100명)을 따로 들고 있으면 상한이 바뀔 때 조용히 어긋난다 —
+    그때 화면은 "보낼 수 있다"고 하는데 서버는 400을 내는 상태가 된다.
+    """
+    d = collect_review(session)
+    nl = d["newsletter"]
+    recipients: int = d["recipients"]
+    cfg: SendSettings = d["settings"]
+
+    if nl is None:
+        blocked = "오늘 편이 아직 없습니다 — 먼저 조립하세요."
+    elif recipients < 1:
+        blocked = "수신자가 0명입니다 — 회원 관리에서 발송 대상을 확인하세요."
+    elif recipients > PILOT_MAX_RECIPIENTS:
+        blocked = (
+            f"수신자 {recipients}명 — 파일럿 상한 {PILOT_MAX_RECIPIENTS}명을 넘습니다. "
+            "본 발송 전 안전장치라 코드에서만 풀 수 있습니다."
+        )
+    else:
+        blocked = None
+
+    edition = None
+    if nl is not None:
+        edition = {
+            "id": nl.id,
+            "subject": nl.subject,
+            "status": nl.status,
+            "already_sent": d["already_sent"],
+            "items": len((nl.target_filter or {}).get("item_urls") or []),
+        }
+
+    return {
+        "recipients": recipients,
+        "max_recipients": PILOT_MAX_RECIPIENTS,
+        "edition": edition,
+        "can_send": blocked is None,
+        "blocked_reason": blocked,
+        "settings": asdict(cfg) | {"total": cfg.total},
+        "limits": {"max_items": MAX_ITEMS_TOTAL, "max_days": MAX_DAYS},
     }
 
 

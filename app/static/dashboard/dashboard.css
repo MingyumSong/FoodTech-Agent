@@ -636,10 +636,11 @@ td.num {
   border-color: color-mix(in srgb, var(--warn) 45%, transparent);
 }
 
-/* 작업 중인 버튼은 두 번 눌리면 안 된다 — 발송·삭제가 두 번 실행되는 걸 막는다 */
+/* 잠긴 버튼 — 작업 중이거나(중복 실행 방지) 조건이 안 맞아 못 누르는 상태.
+ * 어느 쪽이든 "지금은 안 된다"가 맞는 뜻이라 not-allowed 로 통일한다. */
 .btn[disabled] {
-  opacity: 0.5;
-  cursor: progress;
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .pager {

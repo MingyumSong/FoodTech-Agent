@@ -13,6 +13,7 @@
  */
 
 import { openMembersModal } from "./members-modal.js";
+import { openReviewModal } from "./review-modal.js";
 
 const SECTIONS = [
   {
@@ -51,7 +52,10 @@ const SECTIONS = [
     mine: true, // 우리가 채우는 섹션 — 빈 자리라도 나머지와 구분해 보여준다
     endpoint: "/admin/api/newsletter",
     render: renderNewsletter,
-    actions: [{ label: "👥 회원 관리", run: openMembersModal }],
+    actions: [
+      { label: "👥 회원 관리", run: openMembersModal },
+      { label: "📨 발송 검토", run: openReviewModal },
+    ],
   },
 ];
 
