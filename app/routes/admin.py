@@ -11,7 +11,7 @@ import secrets
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, Form, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlmodel import Session
@@ -20,7 +20,7 @@ from app.config import settings
 from app.db import get_session
 from app.lib.errors import ConflictError, NotFoundError
 from app.lib.logger import get_logger
-from app.models.member import MemberCreate
+from app.models.member import Member, MemberCreate
 from app.services.admin_pages import (
     TIER_ORDER,
     _nav,
@@ -35,8 +35,14 @@ from app.services.admin_pages import (
     scores_csv,
 )
 from app.services.admin_status import collect_stats, render_status
-from app.services.dashboard_api import newsletter_section
-from app.services.members import create_member, delete_member, get_member, set_subscribed
+from app.services.dashboard_api import members_page, newsletter_section
+from app.services.members import (
+    create_member,
+    delete_member,
+    get_member,
+    set_program,
+    set_subscribed,
+)
 from app.services.newsletter import PILOT_MAX_RECIPIENTS, UNSUB_PLACEHOLDER, _recipients
 from app.services.pilot_daily import (
     PILOT_PROGRAM,
@@ -88,6 +94,78 @@ def admin_api_newsletter(session: Session = Depends(get_session)) -> dict[str, A
     새 섹션을 만들 때 이 라우트를 본떠 만든다 — 라우트는 HTTP만, 집계는 서비스가 한다.
     """
     return newsletter_section(session)
+
+
+# --- 회원 관리 모달 (T-027 3a) — 대시보드에서 쓰는 JSON 판 -------------------------
+# 기존 폼 엔드포인트(303 리다이렉트)는 서버 렌더 화면용이라 그대로 두고, 여기선 JSON으로 답한다.
+# 로직은 양쪽 다 같은 서비스 함수를 부르므로 동작이 갈라지지 않는다.
+
+
+@router.get("/api/members", dependencies=[Depends(require_admin_basic)])
+def admin_api_members(
+    q: str | None = Query(default=None),
+    program: str | None = Query(default=None),
+    page: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    return members_page(session, q=q, program=program, page=page)
+
+
+@router.post("/api/members", dependencies=[Depends(require_admin_basic)])
+def admin_api_member_create(
+    payload: MemberCreate, session: Session = Depends(get_session)
+) -> dict[str, Any]:
+    try:
+        member = create_member(session, payload)
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    logger.info("admin member added (dashboard)")  # PII는 로그에 남기지 않는다
+    return {"id": member.id}
+
+
+@router.post("/api/members/{member_id}/subscribed", dependencies=[Depends(require_admin_basic)])
+def admin_api_member_subscribed(
+    member_id: int, subscribed: bool = Body(embed=True), session: Session = Depends(get_session)
+) -> dict[str, Any]:
+    member = _member_or_404(session, member_id)
+    changed = set_subscribed(session, member, subscribed=subscribed)
+    if changed:
+        logger.info(f"admin subscription changed: id={member_id} subscribed={subscribed}")
+    return {"changed": changed, "subscribed": member.subscribed}
+
+
+@router.post("/api/members/{member_id}/program", dependencies=[Depends(require_admin_basic)])
+def admin_api_member_program(
+    member_id: int,
+    program: str = Body(embed=True),
+    joined: bool = Body(embed=True),
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """발송 대상에 넣거나 뺀다 — 지금까지 관리자 화면에 없던 기능."""
+    member = _member_or_404(session, member_id)
+    changed = set_program(session, member, program, joined=joined)
+    if changed:
+        logger.info(f"admin program changed: id={member_id} program={program} joined={joined}")
+    return {"changed": changed}
+
+
+@router.delete("/api/members/{member_id}", dependencies=[Depends(require_admin_basic)])
+def admin_api_member_delete(
+    member_id: int, session: Session = Depends(get_session)
+) -> dict[str, Any]:
+    try:
+        delete_member(session, member_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    logger.info(f"admin member deleted (dashboard): id={member_id}")
+    return {"deleted": member_id}
+
+
+def _member_or_404(session: Session, member_id: int) -> Member:
+    try:
+        return get_member(session, member_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 # ------------------------------------------------------------------ 현황판 (T-010)

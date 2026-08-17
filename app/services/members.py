@@ -64,6 +64,36 @@ def set_subscribed(session: Session, member: Member, *, subscribed: bool) -> boo
     return True
 
 
+def set_program(session: Session, member: Member, program: str, *, joined: bool) -> bool:
+    """회원을 프로그램에 넣거나 뺀다. 실제로 바뀐 경우에만 True (T-027 3a).
+
+    발송 대상은 `_recipients`가 프로그램으로 고르므로, **이게 "발송 리스트에 넣는다"의 실체**다.
+    지금까지 관리자 화면엔 이 기능이 없어서 — 회원 추가·삭제·구독 토글은 되는데 이미 있는
+    회원을 발송 대상에 넣을 수가 없었다 — 요청이 올 때마다 스크립트를 돌려야 했다
+    (2026-08-17 교수님을 pilot-daily에 넣어달라는 요청이 그랬다).
+
+    구독 여부와는 별개다: 프로그램에 넣어도 `subscribed=False`면 발송되지 않는다.
+    둘을 한 버튼으로 묶지 않는 이유는 뜻이 다르기 때문이다 —
+    프로그램은 "어느 명단에 속하는가", 구독은 "메일을 받겠는가"다.
+    """
+    assert member.id is not None
+    existing = session.exec(
+        select(MemberProgram).where(
+            MemberProgram.member_id == member.id, MemberProgram.program == program
+        )
+    ).first()
+
+    if joined and existing is None:
+        session.add(MemberProgram(member_id=member.id, program=program))
+    elif not joined and existing is not None:
+        session.delete(existing)
+    else:
+        return False
+
+    session.commit()
+    return True
+
+
 def delete_member(session: Session, member_id: int) -> None:
     """회원 하드 삭제. FK 무결성을 지키려고 참조 행을 먼저 정리한다.
 

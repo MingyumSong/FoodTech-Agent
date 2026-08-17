@@ -4,12 +4,15 @@
  * │ 1. 아래 SECTIONS 배열에 항목을 추가한다.                              │
  * │ 2. endpoint 에 JSON API 주소를 적는다 (서버는 app/routes/admin.py).   │
  * │ 3. render(data) 를 채운다 — 응답을 받아 섹션 본문 HTML 문자열을 만든다.│
+ * │ 4. 조작이 필요하면 actions 에 버튼을 선언한다 — 상세는 모달로 연다.   │
  * │ endpoint 를 null 로 두면 "아직 비어 있음" 자리로 그려진다.            │
  * └──────────────────────────────────────────────────────────────────────┘
  *
  * 데이터를 여기서 직접 가공하지 않는다. 계산은 서버가 끝내서 보내고, 이 파일은 그리기만 한다.
  * (그래야 같은 숫자가 화면과 CSV·API에서 갈라지지 않는다.)
  */
+
+import { openMembersModal } from "./members-modal.js";
 
 const SECTIONS = [
   {
@@ -48,6 +51,7 @@ const SECTIONS = [
     mine: true, // 우리가 채우는 섹션 — 빈 자리라도 나머지와 구분해 보여준다
     endpoint: "/admin/api/newsletter",
     render: renderNewsletter,
+    actions: [{ label: "👥 회원 관리", run: openMembersModal }],
   },
 ];
 
@@ -256,6 +260,20 @@ async function loadSection(s) {
 
 export function mount(root) {
   root.innerHTML = SECTIONS.map(sectionShell).join("");
+
+  // 섹션이 선언한 버튼을 머리에 단다. 눌렀을 때 하는 일은 섹션이 정한다(대개 모달 열기).
+  for (const s of SECTIONS) {
+    const box = document.getElementById(`actions-${s.id}`);
+    if (!box || !s.actions) continue;
+    for (const a of s.actions) {
+      const btn = document.createElement("button");
+      btn.className = "btn";
+      btn.textContent = a.label;
+      btn.addEventListener("click", () => a.run());
+      box.appendChild(btn);
+    }
+  }
+
   // 섹션끼리 기다리지 않게 각자 불러온다 — 하나가 느려도 나머지는 먼저 뜬다.
   SECTIONS.forEach(loadSection);
 }

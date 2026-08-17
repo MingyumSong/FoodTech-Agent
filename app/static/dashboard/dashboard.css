@@ -510,6 +510,167 @@ td.num {
   text-align: right;
 }
 
+/* ---------------------------------------------------------------- 모달
+ * 대시보드의 어법: 요약은 섹션에, 상세와 조작은 모달에. 새 섹션도 이 부품을 그대로 쓴다.
+ */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 22, 0.72);
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5vh 16px;
+  overflow-y: auto;
+}
+
+.modal {
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  width: min(1000px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-md);
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.modal-head .sub {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.modal-x {
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+}
+
+.modal-x:hover {
+  color: var(--ink);
+  background: var(--card-2);
+}
+
+.modal-body {
+  padding: 18px 22px 24px;
+  overflow-y: auto;
+}
+
+/* ---------------------------------------------------------------- 폼 */
+
+.field {
+  font: inherit;
+  font-size: 13.5px;
+  padding: 8px 11px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink);
+  min-width: 0;
+}
+
+.field:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.field::placeholder {
+  color: var(--ink-3);
+}
+
+.row {
+  display: flex;
+  gap: var(--s-sm);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--s-md);
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 5px 11px;
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+.btn-danger:hover {
+  border-color: var(--danger);
+}
+
+.btn-on {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+
+/* 명단엔 있는데 수신거부라 실제로는 안 나가는 상태 — 초록(정상)과 구분해야 한다 */
+.btn-warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+}
+
+/* 작업 중인 버튼은 두 번 눌리면 안 된다 — 발송·삭제가 두 번 실행되는 걸 막는다 */
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-md);
+  margin-top: var(--s-md);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.toast {
+  margin-bottom: var(--s-md);
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  border: 1px solid var(--line-2);
+  background: var(--card);
+}
+
+.toast.bad {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+.toast.good {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+
 /* ---------------------------------------------------------------- 푸터 */
 
 .foot {

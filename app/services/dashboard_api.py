@@ -13,14 +13,74 @@
 
 from typing import Any
 
-from sqlmodel import Session, func, select
+from sqlmodel import Session, col, func, select
 
+from app.models.member_program import MemberProgram
 from app.models.newsletter import Newsletter
-from app.services.admin_pages import TIER_LABELS_KO, TIER_ORDER, collect_popular, collect_scores
+from app.services.admin_pages import (
+    PER_PAGE,
+    TIER_LABELS_KO,
+    TIER_ORDER,
+    collect_members_page,
+    collect_popular,
+    collect_scores,
+)
 from app.services.admin_status import collect_stats
 from app.services.newsletter_template import CATEGORY_LABELS_KO
 
 TOP_N = 10
+
+
+PILOT_PROGRAM = "pilot-daily"
+
+
+def members_page(
+    session: Session,
+    *,
+    q: str | None = None,
+    program: str | None = None,
+    page: int = 0,
+) -> dict[str, Any]:
+    """회원 관리 모달의 목록 (T-027 3a).
+
+    **여기는 이메일을 보낸다.** 04 섹션의 `newsletter_section`은 일부러 뺐는데(순위를 보는
+    화면이라) 이 화면은 회원을 식별하고 고치는 곳이라 이메일이 있어야 일이 된다.
+    둘의 경계가 다르다는 걸 알고 만든 것이니 나중에 "일관성" 이유로 합치지 말 것.
+    """
+    data = collect_members_page(session, program=program, category=None, q=q, page=page)
+    members = data["members"]
+    ids = [m.id for m in members if m.id is not None]
+
+    # 프로그램은 회원마다 여러 개라 한 번에 읽어 메모리에서 묶는다(행당 쿼리 금지).
+    links: dict[int, list[str]] = {}
+    if ids:
+        for mid, prog in session.exec(
+            select(MemberProgram.member_id, MemberProgram.program).where(
+                col(MemberProgram.member_id).in_(ids)
+            )
+        ).all():
+            links.setdefault(mid, []).append(prog)
+
+    return {
+        "total": data["total"],
+        "page": data["page"],
+        "per_page": PER_PAGE,
+        "programs": data["programs"],
+        "pilot_program": PILOT_PROGRAM,
+        "members": [
+            {
+                "id": m.id,
+                "name": m.name,
+                "email": m.email or "",
+                "organization": m.organization or "",
+                "position": m.position or "",
+                "subscribed": m.subscribed,
+                "programs": sorted(links.get(m.id or 0, [])),
+                "in_pilot": PILOT_PROGRAM in links.get(m.id or 0, []),
+            }
+            for m in members
+        ],
+    }
 
 
 def _rate(part: int, whole: int) -> float | None:
