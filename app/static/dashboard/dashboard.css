@@ -168,10 +168,12 @@ a {
   padding: 20px 22px;
 }
 
+/* 자간은 0.12em이 라틴 대문자엔 어울리지만 한글엔 과하게 벌어진다("인 기  분 야").
+ * 이 화면 제목은 대부분 한글이라 낮춰 잡는다. */
 .panel-title {
   font-family: var(--mono);
   font-size: 11.5px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-3);
   margin: 0 0 var(--s-md);
@@ -337,6 +339,133 @@ a:focus-visible {
   50% {
     opacity: 0.45;
   }
+}
+
+/* ---------------------------------------------------------------- 가로 막대
+ * 길이는 최댓값 대비 비율이다. 축이 0에서 시작하므로 길이를 그대로 비교해도 된다.
+ */
+
+.hbar {
+  display: grid;
+  grid-template-columns: minmax(78px, 26%) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 13px;
+}
+
+.hbar .lbl {
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.hbar .track {
+  background: var(--card-2);
+  border-radius: 4px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.hbar .fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--brand);
+}
+
+.hbar .n {
+  color: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.5ch;
+  text-align: right;
+}
+
+/* 읽은 깊이 세 칸은 순서가 곧 의미(빨리 나감 → 오래 봄)라 색으로도 구분한다 */
+.hbar.bounce .fill {
+  background: var(--ink-3);
+}
+.hbar.middle .fill {
+  background: var(--brand);
+}
+.hbar.engaged .fill {
+  background: var(--ok);
+}
+
+/* ---------------------------------------------------------------- 순위 목록 */
+
+.rank-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.rank-row:last-child {
+  border-bottom: none;
+}
+
+.rank-row .rk {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-row .nm {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.rank-row .sc {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+
+.rank-row .sc .u {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  margin-left: 2px;
+}
+
+/* 등급 칩 — 다크 바탕에서 대비가 죽지 않게 글자색을 밝게 잡는다.
+ * 이 화면은 읽는 게 기능이라 멋보다 대비가 먼저다. */
+.chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+.chip-active {
+  color: var(--ok);
+}
+.chip-warm {
+  color: var(--gold);
+}
+.chip-dormant {
+  color: var(--ink-3);
+}
+.chip-unknown {
+  color: var(--ink-3);
+}
+.chip-unsubscribed {
+  color: var(--danger);
+}
+
+.note-line {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin: 0 0 12px;
+  line-height: 1.6;
 }
 
 /* ---------------------------------------------------------------- 표 */

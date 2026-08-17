@@ -9,6 +9,7 @@
 
 import secrets
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -34,6 +35,7 @@ from app.services.admin_pages import (
     scores_csv,
 )
 from app.services.admin_status import collect_stats, render_status
+from app.services.dashboard_api import newsletter_section
 from app.services.members import create_member, delete_member, get_member, set_subscribed
 from app.services.newsletter import PILOT_MAX_RECIPIENTS, UNSUB_PLACEHOLDER, _recipients
 from app.services.pilot_daily import (
@@ -77,6 +79,15 @@ def admin_dashboard() -> str:
     공개 구역을 두지 않는다. 새 섹션을 추가하는 방법은 `dashboard.js` 맨 위 주석 참조.
     """
     return _DASHBOARD_HTML.read_text(encoding="utf-8")
+
+
+@router.get("/api/newsletter", dependencies=[Depends(require_admin_basic)])
+def admin_api_newsletter(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """04 Newsletter 섹션 데이터 (T-027 2단계).
+
+    새 섹션을 만들 때 이 라우트를 본떠 만든다 — 라우트는 HTTP만, 집계는 서비스가 한다.
+    """
+    return newsletter_section(session)
 
 
 # ------------------------------------------------------------------ 현황판 (T-010)

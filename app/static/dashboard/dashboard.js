@@ -46,11 +46,126 @@ const SECTIONS = [
     sub: "뉴스레터 발송·참여 현황",
     owner: "뉴스레터 팀",
     mine: true, // 우리가 채우는 섹션 — 빈 자리라도 나머지와 구분해 보여준다
-    // 2단계에서 붙인다. 지금은 자리만 잡아 나머지 셋과 같은 모양인지 확인한다.
-    endpoint: null,
-    render: null,
+    endpoint: "/admin/api/newsletter",
+    render: renderNewsletter,
   },
 ];
+
+/* ---------------------------------------------------------------- 공통 조각
+ * 아래 세 개는 어느 섹션에서나 쓴다. 새 섹션도 이걸 조합해 만들면 모양이 저절로 맞는다.
+ */
+
+/** KPI 한 줄. note 는 집계 범위다 — 나란히 놓인 숫자의 기준이 다를 수 있어 반드시 보여준다. */
+function kpis(items) {
+  const cell = (k) => {
+    // 값이 null 이면 0이 아니라 "잴 수 없음"이다. 0%로 보여주면 거짓말이 된다.
+    const v = k.value === null || k.value === undefined ? "—" : fmt(k.value);
+    const unit = k.value === null || k.value === undefined ? "" : esc(k.unit ?? "");
+    return `<div class="kpi">
+        <div class="v">${v}<span class="u">${unit}</span></div>
+        <div class="k">${esc(k.label)}${k.note ? ` · ${esc(k.note)}` : ""}</div>
+      </div>`;
+  };
+  return `<div class="kpis">${items.map(cell).join("")}</div>`;
+}
+
+/** 가로 막대 목록. 길이는 최댓값 대비 비율 — 축이 0이라 길이를 그대로 비교해도 된다. */
+function hbars(rows, { className = "" } = {}) {
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return rows
+    .map(
+      (r) => `<div class="hbar ${esc(r.variant ?? className)}">
+        <div class="lbl">${esc(r.label)}</div>
+        <div class="track"><span class="fill" style="width:${Math.round((r.count / max) * 100)}%"></span></div>
+        <div class="n">${fmt(r.count)}</div>
+      </div>`,
+    )
+    .join("");
+}
+
+/** 1,234 형태로. 소수는 그대로 둔다(점수 51.1 을 51 로 바꾸면 순위가 흐려진다). */
+function fmt(n) {
+  if (typeof n !== "number") return esc(n);
+  return Number.isInteger(n) ? n.toLocaleString("ko-KR") : String(n);
+}
+
+/* ---------------------------------------------------------------- 04 Newsletter */
+
+/** 등급 칩의 색은 서버가 준 **키**(active/warm/…)로 고른다.
+ * 한글 라벨로 고르면 라벨 문구가 바뀔 때 색이 조용히 틀어진다. */
+const TIER_KEYS = ["active", "warm", "dormant", "unknown", "unsubscribed"];
+
+function tierChip(row) {
+  const key = TIER_KEYS.includes(row.tier_key) ? row.tier_key : "unknown";
+  return `<span class="chip chip-${key}">${esc(row.tier)}</span>`;
+}
+
+export function renderNewsletter(d) {
+  const cats = d.categories.ranked.length
+    ? hbars(d.categories.ranked)
+    : `<p class="note-line">아직 클릭이 없습니다.</p>`;
+
+  const dw = d.dwell;
+  const dwellRows = [
+    { label: "💨 튕김 (10초 미만)", count: dw.bounce, variant: "bounce" },
+    { label: "중간 (10~60초)", count: dw.middle, variant: "middle" },
+    { label: "🤔 정독 (60초 이상)", count: dw.engaged, variant: "engaged" },
+  ];
+
+  const tiers = d.tiers.filter((t) => t.count > 0);
+
+  return `
+    ${kpis(d.kpis)}
+    <div style="height:16px"></div>
+    <div class="cols">
+      <div class="stack">
+        <div class="panel">
+          <p class="panel-title">인기 분야 · 최근 ${esc(d.categories.days)}일</p>
+          <p class="note-line">
+            클릭 ${fmt(d.categories.clicks_total)}건 중 ${fmt(d.categories.matched)}건이
+            기사와 매칭됐습니다. 매칭 안 된 클릭은 집계에서 빠집니다.
+          </p>
+          ${cats}
+        </div>
+        <div class="panel">
+          <p class="panel-title">읽은 깊이 (추정)</p>
+          <p class="note-line">
+            원문 체류는 잴 수 없어(남의 서버) <b>같은 편 안의 연속 클릭 간격</b>으로 근사합니다.
+            클릭 ${fmt(dw.clicks_total)}건 중 ${fmt(dw.measurable)}건만 측정 가능 ·
+            중앙값 ${dw.median_seconds === null ? "—" : Math.round(dw.median_seconds) + "초"}.
+          </p>
+          ${hbars(dwellRows)}
+        </div>
+      </div>
+      <div class="stack">
+        <div class="panel">
+          <p class="panel-title">참여도 TOP ${d.top.length}</p>
+          ${
+            d.top.length
+              ? d.top
+                  .map(
+                    (r) => `<div class="rank-row">
+                      <div class="rk">${String(r.rank).padStart(2, "0")}</div>
+                      <div class="nm">${esc(r.name)}${tierChip(r)}</div>
+                      <!-- 점수는 항상 소수 한 자리 — 21 과 51.1 이 섞이면 자릿수가 흔들려 읽기 어렵다 -->
+                      <div class="sc">${r.score.toFixed(1)}<span class="u">점</span></div>
+                    </div>`,
+                  )
+                  .join("")
+              : `<p class="note-line">아직 점수를 낼 발송 이력이 없습니다.</p>`
+          }
+        </div>
+        <div class="panel">
+          <p class="panel-title">등급 분포</p>
+          ${
+            tiers.length
+              ? hbars(tiers.map((t) => ({ label: t.label, count: t.count })))
+              : `<p class="note-line">분류할 회원이 없습니다.</p>`
+          }
+        </div>
+      </div>
+    </div>`;
+}
 
 /* ---------------------------------------------------------------- 도우미 */
 
@@ -127,7 +242,11 @@ async function loadSection(s) {
       body.innerHTML = errorState(`데이터를 불러오지 못했습니다 (HTTP ${res.status})`);
       return;
     }
-    body.innerHTML = s.render(await res.json());
+    const data = await res.json();
+    body.innerHTML = s.render(data);
+    // 부제는 집계 범위를 담는다("발송 22편 · 파일럿 25명 기준"). 서버가 준 게 있으면 갈아 끼운다.
+    const sub = document.getElementById(`sub-${s.id}`);
+    if (sub && data.subtitle) sub.textContent = data.subtitle;
   } catch (e) {
     body.innerHTML = errorState(`데이터를 불러오지 못했습니다 — ${e && e.message ? e.message : e}`);
   }
