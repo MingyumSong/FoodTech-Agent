@@ -1,7 +1,40 @@
 # T-021 반응 버튼 봇 클릭 필터
 
 Type: BUG
-Status: TODO (2026-08-04 — 세션 랩 분석에서 발견. **내일 첫 실데이터로 실재 여부부터 확인할 것**)
+Status: CLOSED — 문제 없음 (2026-08-18 — **관측 결과 봇 반응이 실재하지 않는다.** 아래 실측 참조)
+
+## 관측 결과 (2026-08-18, 운영 DB 읽기 전용)
+
+이 티켓이 스스로 요구한 "필터부터 만들지 말고 관측이 먼저다"를 실행한 결과다.
+
+```sql
+SELECT COUNT(*) reacted,
+       COUNT(*) FILTER (WHERE e.occurred_at - s.created_at < interval '10 seconds') within_10s,
+       COUNT(*) FILTER (WHERE e.occurred_at - s.created_at < interval '60 seconds') within_60s,
+       ROUND(MIN(EXTRACT(EPOCH FROM (e.occurred_at - s.created_at)))) min_delay_sec
+FROM engagement_events e
+JOIN send_logs s ON s.newsletter_id = e.newsletter_id AND s.member_id = e.member_id
+WHERE e.event_type = 'reacted';
+```
+
+| reacted | within_10s | within_60s | min_delay_sec |
+| --- | --- | --- | --- |
+| 14 | **0** | **0** | **267** |
+
+회원 7명, 2026-08-05~08-15(첫 실사용부터 11일). **가장 빠른 반응이 발송 4분 27초 뒤**로,
+프리페치라면 나올 수 없는 지연이다. 열람(`BOT_OPEN_SECONDS = 10`)과 달리 반응에는 방어가
+없어도 됐다 — 클릭 한 번이 더 필요한 경로라 링크 훑기 봇이 안 누르는 것으로 보인다.
+
+**따라서 필터를 만들지 않는다.** 있지도 않은 문제를 막느라 진짜 반응을 버리는 게 더 나쁘다
+(이 티켓의 원래 판단이 옳았다). Activity Score 상위 랭킹은 봇으로 오염되지 않았다.
+
+**되살릴 조건**: 발송이 파일럿 25명을 넘어 확대되면 수신자의 메일 클라이언트 구성이 달라진다.
+확대 발송 후 위 쿼리를 다시 돌려 `within_10s > 0` 이면 이 티켓을 다시 연다.
+
+---
+
+<details>
+<summary>원래 티켓 내용 (관측 전 가설)</summary>
 
 ## Problem
 
@@ -52,3 +85,5 @@ Status: TODO (2026-08-04 — 세션 랩 분석에서 발견. **내일 첫 실데
    차이 분포를 뽑아본다. 25명 중 몇 명이 몇 초 만에 반응했는지.
 2. `bash scripts/check.sh` exit=0.
 3. 단위 테스트: 발송 직후 반응 / 한참 뒤 반응 / 반응 없음 각각의 점수 반영.
+
+</details>

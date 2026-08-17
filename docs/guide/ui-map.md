@@ -128,9 +128,13 @@ bash scripts/dev.sh        # Postgres 기동 → 스키마 적용 → 서버 실
 # → http://localhost:8000/admin/dashboard
 ```
 
-**시크릿(`.env`)이 없어도 화면은 뜹니다.** `ADMIN_TOKEN`이 비어 있고 `APP_ENV`가
-`local`/`dev`/`test`면 **개발 모드**로 떠서 인증 없이 볼 수 있고, 화면 맨 위에 주황색 배너가
-붙습니다. 발송·수집·LLM은 키가 없으면 동작하지 않지만 화면 개발엔 필요 없습니다.
+**시크릿(`.env`)이 없어도 화면은 뜹니다 — 단 위 `scripts/dev.sh`로 띄울 때만.**
+개발 모드는 `ADMIN_TOKEN`이 비어 있고 `APP_ENV`가 `local`/`dev`/`test`일 때만 켜지는데,
+**`APP_ENV` 기본값이 `prod`라** 맨 `uv run uvicorn app.main:app`으로는 잠깁니다
+(환경변수를 안 넣은 배포가 곧 무인증 공개였던 적이 있어, 부재를 열림으로 해석하지 않도록
+기본값을 뒤집었습니다 — `6f7b05e`). `dev.sh`가 `APP_ENV=local`을 명시해 줍니다.
+개발 모드로 뜨면 화면 맨 위에 주황색 배너가 붙습니다.
+발송·수집·LLM은 키가 없으면 동작하지 않지만 화면 개발엔 필요 없습니다.
 
 운영은 `APP_ENV=prod`라 절대 열리지 않습니다 — 두 조건이 **모두** 맞아야 하고,
 하나라도 어긋나면 잠깁니다(`app/config.py`의 `Settings.dev_mode`).

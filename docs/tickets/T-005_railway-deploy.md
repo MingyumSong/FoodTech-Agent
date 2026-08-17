@@ -1,7 +1,13 @@
 # T-005: Railway 배포 (선행 준비 + 배포 본체)
 
-Status: DOING (2026-07-18 — AC 10/11 충족. **잔여: AC10 CNAME만** (Cloudflare에서 admin 서브도메인 연결).
+Status: DONE (2026-08-18 — AC 11/11. 잔여였던 AC10 CNAME은 2026-08-06 연결됐고
+`https://admin.foodtech-center.org/admin/dashboard` 가 401(=서비스 연결됨)을 낸다.
 배포 URL: `https://app-production-945c.up.railway.app`, 프로젝트 foodtech-hub / 서비스 app, 배포는 `railway up`)
+
+> **`railway up` 은 git 이 아니라 워킹 디렉터리를 올린다.** `Dockerfile` 이 `app/`·`migrations/`·
+> `scripts/` 를 COPY 하고 `.dockerignore` 가 `.git` 을 빼므로, **커밋 안 한 편집도 그대로 배포되고
+> 컨테이너는 자기가 어느 커밋인지 모른다.** 2026-08-17 에 실제로 미커밋 중간 상태가 배포돼 있었고,
+> 그걸 브라우저 캐시로 오진했다. 배포 전에 `git status --short` 를 확인할 것.
 
 ## Problem
 

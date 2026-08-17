@@ -130,8 +130,9 @@ T-010 현황판 / T-011 매일발송 / T-012 관리자 — **전부 DONE·배포
   라운드로빈(`_cap_balanced`). 분류 프롬프트 v3(정부 공식 정의 삽입). **입력은 제목+요약 300자**
   (본문 스크래핑 안 함). 2차 게이트(`filter_foodtech_relevant`)는 발송 직전 LLM, **temperature=0**.
 - **추적**: 추적 도메인 `links.news.foodtech-center.org`(Resend 추적 기본 OFF라 필수였음).
-  clicked url = 원본 기사 URL — 이게 T-016에서 깨질 전제다.
-- **UI 어디를 고치나**: `docs/guide/ui-map.md` (템플릿 파일이 아니라 파이썬 함수가 HTML을 조립).
+  clicked url = **원본 기사 URL**. 이걸 깰 뻔한 T-016(중간 착지 페이지)은 접었으니 매칭은 한 경로다.
+- **UI 어디를 고치나**: `docs/guide/ui-map.md`. 렌더가 **두 갈래**다 — 기존 5탭은 파이썬 함수가
+  HTML을 조립하고, 대시보드는 `dashboard.js`가 그린다(CSS는 `dashboard.css` 실파일).
 - **`pilot_members`**(RLS): 25명 스냅샷+집계. 점수 컬럼은 `refresh_pilot_stats`(**파일럿 경로 전용** —
   본 발송은 안 탄다)가 남기는 **이력 스냅샷일 뿐**. 참여도 탭은 **조회 시점에 재계산**한다.
 
@@ -151,19 +152,17 @@ T-010 현황판 / T-011 매일발송 / T-012 관리자 — **전부 DONE·배포
 네 섹션 중 **04 Newsletter만 우리가 채우고** 나머지 셋은 랩실이 이어받을 빈 자리로 남겼다.
 계획·구조 그림은 T-027 티켓 맨 위 링크.
 
-- **렌더링이 바뀌었다**: 파이썬 f-string HTML 조립 → **JSON API + 클라이언트 렌더**.
-  기준은 "우리가 편한 것"이 아니라 **"이어받는 사람이 읽기 쉬운 것"**.
-  확장 지점은 `dashboard.js`의 `SECTIONS` 한 곳 — endpoint·render·actions만 채우면 섹션이 된다.
+- **렌더링이 바뀌었다**: 파이썬 f-string 조립 → **JSON API + 클라이언트 렌더**. 확장 지점은
+  `dashboard.js`의 `SECTIONS` 한 곳 — endpoint·render·actions만 채우면 섹션이 된다.
 - **기존 5탭(`/admin/status` 등)은 그대로 살아 있다.** `/admin`도 아직 현황판으로 간다.
 - **셸 HTML은 `app/templates/`** — `app/static/`은 공개 마운트라 거기 두면 인증이 통째로 우회된다.
-- **집계 범위를 값과 함께 보낸다** — 구독자는 전체 3,421명, 참여율은 파일럿 25명 기준.
-- **발송 가능 여부는 서버가 판정**(`can_send`)하고 누르는 시점에 재판정한다.
 - ✅ **발송 대상 토글 신설** — 이미 있는 회원을 명단에 넣는 기능이 없어서 8/17 교수님 요청 때
   스크립트를 돌려야 했다. 프로그램(명단)과 구독(수신 의사)은 **분리해서** 다룬다.
-- ✅ **개발 모드**(`Settings.dev_mode`) — `ADMIN_TOKEN` 없음 **AND** `APP_ENV∈{local,dev,test}`
-  일 때만 인증이 꺼진다. 운영은 `APP_ENV=prod`라 안 열린다. 화면 배너+기동 로그로 알린다.
-  `bash scripts/dev.sh` 한 줄이면 클론 직후 화면까지. **동작 변경**: 예전엔 토큰 없으면
-  무조건 503이었다.
+- 🔒 **`app_env` 기본값 = `prod`**(`6f7b05e`). 예전 기본값 `local` 때는 **환경변수를 안 넣은
+  배포가 곧 무인증 공개**였다 — **부재를 열림으로 해석하지 않는다.** 개발 모드는 `ADMIN_TOKEN`
+  없음 **AND** `APP_ENV∈{local,dev,test}`일 때만 켜지니 로컬은 `bash scripts/dev.sh`로 띄운다.
+- ⚠️ **디자인 CSS는 원본에서 값 그대로 옮긴 것**(`dashboard.css` 1~3부, `34cab0c`). 눈대중으로
+  다시 지었다가 인상이 갈려 재이식했다 — 고치기 전에 ui-map "디자인은 가져온 것이다"를 읽을 것.
 - ⚠️ **`ADMIN_TOKEN` 로테이션 필요** — 대시보드 Cloudflare에 통째로 들어가 있고(발송 실행까지
   여는 열쇠), 8/17 작업 중 터미널 출력에도 노출됐다.
 

@@ -17,26 +17,34 @@
 import html as html_lib
 from typing import Any
 
-# B안 팔레트. NAVY는 app/static/foodie-icon.png의 배경에서 샘플링한 값이라 임의 변경 금지.
-NAVY = "#042A4F"  # 헤더 — app/static/foodie-icon.png 배경에서 샘플링
-NAVY_SOFT = "#8FB3CC"  # 네이비 위 보조 텍스트
-ACCENT = "#1F6FB2"
-ACCENT_SOFT = "#E4EFF8"
-HIGHLIGHT = "#5FB0E8"
-INK = "#16181D"
-GRAY = "#4B5563"
-GRAY_SOFT = "#9CA3AF"
-LINE = "#E5E7EB"
-BLOCK_BG = "#F7FAFC"
-BG = "#EDF1F5"
+# 팔레트 — 대시보드(`/admin/dashboard`)의 WFTC 토큰을 메일로 옮긴 값이다.
+#
+# **대시보드는 다크 배경이지만 메일은 밝게 간다.** 색만 가져오고 지면은 흰색으로 두는 이유:
+# 메일 클라이언트의 다크모드가 배경·글자색을 제멋대로 반전시켜 다크 디자인이 오히려 깨지고,
+# Outlook은 그라데이션을 아예 못 그린다. 브랜드 인상은 **블루+골드 액센트**가 만든다.
+#
+# NAVY는 예전엔 foodie-icon.png 배경에서 샘플링한 값이라 "바꾸지 말 것"이었는데,
+# 아이콘이 **배경 없는 투명 PNG**라 그 제약은 실재하지 않는다(2026-08-18 확인).
+NAVY = "#0B122C"  # 대시보드 --snu-navy. 헤더 바탕 + 제목 글자
+NAVY_SOFT = "#A9B0D0"  # 네이비 위 보조 텍스트 (대시보드 --snu-ink-2 계열)
+BRAND = "#005CB9"  # WFTC 메인 블루
+BRAND_SOFT = "#EAF2FB"
+GOLD = "#FFD338"  # WFT 골드 — 대시보드의 서명 액센트
+GOLD_SOFT = "#FFF7DC"
+INK = "#0B122C"
+GRAY = "#4A5568"
+GRAY_SOFT = "#8A93A6"
+LINE = "#E4E9F2"
+BLOCK_BG = "#FFFFFF"
+BG = "#F5F7FB"
 
 FONT = "'Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif"
-MONO = "'SF Mono','Menlo','Consolas',monospace"
 
 # 발송 시 수신자별로 치환되는 자리표시자 (send_newsletter가 채운다).
 REACTION_BASE_PLACEHOLDER = "__REACTION_BASE__"
 
-REACTIONS = [("good", "👍 좋았어요"), ("ok", "🙂 보통"), ("bad", "🤔 별로")]
+# 이모지를 뺐다 — 세 버튼에 이모지를 달면 본문 어디에도 없는 장식이 여기만 튄다.
+REACTIONS = [("good", "좋았어요"), ("ok", "보통"), ("bad", "별로")]
 
 
 def _esc(text: str) -> str:

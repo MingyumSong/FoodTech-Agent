@@ -38,6 +38,8 @@ Status: DONE (2026-08-04 — AC 7/7 충족, check.sh 그린 135개.
 - `app/services/admin_pages.py` — `collect_popular`/`render_popular_page`(집계 표시 패턴),
   `_bar_rows`(admin_status에서 재사용 중).
 - `docs/tickets/T-016_article-landing-page.md` — 진짜 체류를 재는 후속안(중간 착지 페이지).
+  **2026-08-18 WONTFIX로 접었다** — 이 티켓의 근사치가 의사결정에 충분했고, 남은 A/B 2주를
+  프로젝트 기간(~08-29) 안에 확보할 수 없다. 즉 **체류는 이 근사치가 최종값이다.**
 
 ## Scope
 
